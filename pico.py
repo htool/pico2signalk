@@ -132,39 +132,40 @@ while True:
 	      if pos == 5:
 	      	voltage = int(part, 16) / float(1000)
 	      #	print responses14[pos-1] + " " + voltage + ' volt'
-	      if voltage != '':
-	        updates.append({"path": "electrical.batteries.1.name", "value": 'Service'})
-	        updates.append({"path": "electrical.batteries.1.voltage", "value": voltage})
-	        if temp != '':
-		  updates.append({"path": "electrical.batteries.1.temperature", "value": temp})
 	      # if pos == 14:
 	      #	print responses14[pos-1] + " " + str(int(part,16)) + ' Ohm'
 	      if pos == 3:
 		pressure = int(part[4:8],16) + 65536
 		#print responses14[pos-1] + " " + pressure + ' mBar'
-	      if pressure != '':
-		updates.append({"path": "environment.outside.pressure", "value": pressure})
 	      if pos == 19:
 		temp = int(part,16) / float(10) + 273.15
 		# print responses14[pos-1] + " " + str(temp) + ' K'
-	      if temp != '':
-		updates.append({"path": "environment.inside.temperature", "value": temp})
 	      if pos == 20:
 		tank1Percent = (int(part[1:4],16) / float(1000))
 		tank1Liter = (int(part[4:8],16) / float(10000))
-	        updates.append('\r')
-		#print responses14[pos-1] + " " + str(int(part[1:4],16) / float(10)) + '%' + "  " + str(int(part[4:8],16) / float(10)) + ' liter'
-	      if tank1Percent != '':
-		updates.append({"path": "tanks.freshWater.1.name", "value": 'Front'})
-	        updates.append({"path": "tanks.freshWater.1.type", "value": 'fresh water'})
-	        updates.append({"path": "tanks.freshWater.1.capacity", "value": 300})
-	        updates.append({"path": "tanks.freshWater.1.currentLevel", "value": tank1Percent})
-	        updates.append({"path": "tanks.freshWater.1.currentVolume", "value": tank1Liter})
-	      #if pos == 21:
 		#print responses14[pos-1] + " " + str(int(part[1:4],16) / float(10)) + '%' + "  " + str(int(part[4:8],16) / float(10)) + ' liter'
 		#updates.append({"path": "environment.inside.temperature", "value": temp})
+	      #if pos == 21:
+		#print responses14[pos-1] + " " + str(int(part[1:4],16) / float(10)) + '%' + "  " + str(int(part[4:8],16) / float(10)) + ' liter'
               responseB[pos] = part
 	  pos += 1
+	if tank1Percent != '':
+	  updates.append({"path": "tanks.freshWater.1.name", "value": 'Front'})
+	  updates.append({"path": "tanks.freshWater.1.type", "value": 'fresh water'})
+	  updates.append({"path": "tanks.freshWater.1.capacity", "value": 300})
+	  updates.append({"path": "tanks.freshWater.1.currentLevel", "value": tank1Percent})
+	  updates.append({"path": "tanks.freshWater.1.currentVolume", "value": tank1Liter})
+	if pressure != '':
+	  updates.append({"path": "environment.outside.pressure", "value": pressure})
+	if voltage != '':
+	  updates.append({"path": "electrical.batteries.1.name", "value": 'Service'})
+	  updates.append({"path": "electrical.batteries.1.voltage", "value": voltage})
+	  if temp != '':
+	    updates.append({"path": "electrical.batteries.1.temperature", "value": temp})
+	if temp != '':
+	  updates.append({"path": "environment.inside.temperature", "value": temp})
+
+
 #    elif response[18] == 'c':
 #      if len(responseC) == 0:
 #	responseC = parse(response)
@@ -177,7 +178,6 @@ while True:
 #	  pos += 1
 
     sys.stdout.flush()
-    empty_socket(client)
 
     delta = {
         "updates": [
@@ -191,3 +191,4 @@ while True:
     }
     print json.dumps(delta)
     time.sleep (5)
+    empty_socket(client)
