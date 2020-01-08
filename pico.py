@@ -7,7 +7,9 @@ import select
 import requests
 import json
 
-responses14 = [''] * 26
+responses = [''] * 200
+sensors = ['']
+
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def empty_socket(sock):
@@ -75,22 +77,67 @@ def get_pico_config(pico_ip):
   # Connect to the server at given IP and port
   s.connect((pico_ip, serverport))
 
+
+  message = "00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 00 ff 01 03 00 00 00 00 ff 00 00 00 00 ff e8 19"
+  response = send_receive(message)
+  # print str(parse(response))
   # CRC checksums (due to lack of knowing how to calculate these)
-  CRCs14 = ('e8 19','3c 33','51 c4','85 ee','8a 2a','5e 00','33 f7','e7 dd','2c 7f','f8 55','95 a2','41 88','4e 4c','9a 66','f7 91','23 bb','71 5c','a5 76','c8 81','1c ab','13 6f')
-  response_list14 = []
+  CRCs = ('e8 19','3c 33','51 c4','85 ee','8a 2a','5e 00','33 f7','e7 dd','2c 7f','f8 55','95 a2','41 88','4e 4c','9a 66','f7 91','23 bb','71 5c','a5 76','c8 81','1c ab','13 6f','c7 45','aa b2','7e 98','b5 3a','61 10')
+  response_list = []
+  fluid = ['fresh water','diesel']
+  fluid_type = ['freshWater','fuel']
   pos = 0
-  for crc in CRCs14:
+  for crc in CRCs:
+    sensor_name = ''
+    sensor_type = ''
+    sensor_capacity = 0
+    sensor_fluid = ''
     message = ('00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 ' + "%02x" % pos + ' ff 01 03 00 00 00 00 ff 00 00 00 00 ff ' + crc)
     response = send_receive(message)
     if response != '':
-      response_list14 = parse(response)
-    if len(response_list14) > 6:
-       responses14[pos] = response_list14[7].replace(' ','').decode('hex')
+      response_list = parse(response)
+    if len(response_list) > 6:
+      responses[pos] = response_list[7].replace(' ','').decode('hex')
+      sensor_name = response_list[7].replace(' ','').decode('hex')
+    if pos == 5:
+      sensor_name = 'Barometer'
+      sensor_type = 'pressure'
+      # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type)
+    if pos == 8:
+      sensor_name = 'Service'
+      sensor_type = 'Battery'
+      # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type)
+    if pos >= 19:
+      try:
+        capacityHex = response_list[13].replace(' ','')
+        sensor_capacity = int(capacityHex[4:8],16) / 10
+        fluidHex = response_list[11].replace(' ','')
+        sensor_fluid = fluid[int(fluidHex[4:8],16) - 1]
+        sensor_type = fluid_type[int(fluidHex[4:8],16) - 1]
+        # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type) + "  fluid: " + sensor_fluid + "  capacity: " + str(sensor_capacity)
+        updates.append({"path": "tanks." + sensor_type + ".1.name", "value": sensor_name})
+        updates.append({"path": "tanks." + sensor_type + ".1.type", "value": sensor_fluid})
+        updates.append({"path": "tanks." + sensor_type + ".1.capacity", "value": sensor_capacity})
+      except:
+        try:
+          capacityHex = response_list[11].replace(' ','')
+          sensor_capacity = int(capacityHex[4:8],16) / 100
+          sensor_type = 'battery'
+          # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type) + "  capacity: " + str(sensor_capacity)
+        except:
+          sensor_type = 'temperature'
+          # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type)
+      # print (responses[pos] + "  " + str(response_list))
     pos += 1
 
   # Close tcp connection
   s.close()
 
+get_pico_config('192.168.4.225')
+
+# exit()
+
+# print "Start UDP listener"
 
 # Setup UDP broadcasting listener
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -98,86 +145,102 @@ client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 client.bind(("", 43210))
 
-responseB = [''] * 26
+responseB = [''] * 50
 responseC = []
 
-voltage = ''
-pressure = ''
-temp = ''
-tank1Percent = ''
-
 while True:
-    updates =[]
+    updates = []
     message, addr = client.recvfrom(1024)
-    if responses14[0] == '':
+    if responses[0] == '':
       get_pico_config(addr[0])
     response = BinToHex(message)
     if response[18] == 'b':
       if len(response) == 0:
         continue
       else:
-	pos = 0
-	# Strip header to avoid confusion
-	response = response[42:]
-        # for part in parse(response):
-        while len(response) > 17:
-	  part = response[0:18]
-	  response = response[21:]
-          pos = int(part[0:2], 16)
-	  # print "pos: " + str(pos) + "  part: " + part + "   response: " + response
-	  part = part[6:].replace(' ','')
-          if pos != 44:
-	    if responseB[pos] != part:
-              # print "New B(" + str(pos) + " - " + responses14[pos-1] + "): " + str(part) + " was: " + str(responseB[pos])
-	      if pos == 5:
-	      	voltage = int(part, 16) / float(1000)
-	      #	print responses14[pos-1] + " " + voltage + ' volt'
-	      # if pos == 14:
-	      #	print responses14[pos-1] + " " + str(int(part,16)) + ' Ohm'
-	      if pos == 3:
-		pressure = int(part[4:8],16) + 65536
-		#print responses14[pos-1] + " " + pressure + ' mBar'
-	      if pos == 19:
-		temp = int(part,16) / float(10) + 273.15
-		# print responses14[pos-1] + " " + str(temp) + ' K'
-	      if pos == 20:
-		tank1Percent = (int(part[1:4],16) / float(1000))
-		tank1Liter = (int(part[4:8],16) / float(10000))
-		#print responses14[pos-1] + " " + str(int(part[1:4],16) / float(10)) + '%' + "  " + str(int(part[4:8],16) / float(10)) + ' liter'
-		#updates.append({"path": "environment.inside.temperature", "value": temp})
-	      #if pos == 21:
-		#print responses14[pos-1] + " " + str(int(part[1:4],16) / float(10)) + '%' + "  " + str(int(part[4:8],16) / float(10)) + ' liter'
-              responseB[pos] = part
-	  pos += 1
-	if tank1Percent != '':
-	  updates.append({"path": "tanks.freshWater.1.name", "value": 'Front'})
-	  updates.append({"path": "tanks.freshWater.1.type", "value": 'fresh water'})
-	  updates.append({"path": "tanks.freshWater.1.capacity", "value": 300})
-	  updates.append({"path": "tanks.freshWater.1.currentLevel", "value": tank1Percent})
-	  updates.append({"path": "tanks.freshWater.1.currentVolume", "value": tank1Liter})
-	if pressure != '':
-	  updates.append({"path": "environment.outside.pressure", "value": pressure})
-	if voltage != '':
-	  updates.append({"path": "electrical.batteries.1.name", "value": 'Service'})
-	  updates.append({"path": "electrical.batteries.1.voltage", "value": voltage})
-	  if temp != '':
-	    updates.append({"path": "electrical.batteries.1.temperature", "value": temp})
-	if temp != '':
-	  updates.append({"path": "environment.inside.temperature", "value": temp})
+        pos = 0
+    # Strip header to avoid confusion
+    response = response[42:]
+    # for part in parse(response):
+    while pos < 43:
+      part = response[0:18]
+      response = response[21:]
+      pos = int(part[0:2], 16)
+      # print "pos: " + str(pos) + "  part: " + part # + "   response: " + response
+      part = part[6:].replace(' ','')
+      if pos < 43:
+        # if responseB[pos] != part:
+        # print part + " " + str(pos) + " was: " + str(responseB[pos])
+        if pos == 5:
+          voltage = int(part, 16) / float(1000)
+        #  print responses[pos-1] + " " + voltage + ' volt'
+        # if pos == 14:
+        #  print responses[pos-1] + " " + str(int(part,16)) + ' Ohm'
+        if pos == 3:
+          pressure = int(part[4:8],16) + 65536
+          #print responses[pos-1] + " " + pressure + ' mBar'
+          updates.append({"path": "environment.outside.pressure", "value": pressure})
+        if pos == 19:
+          temp = ("%.2f" % round(int(part,16) / float(10) + 273.15, 2))
+          updates.append({"path": "environment.inside.temperature", "value": temp})
+          # print responses[pos-1] + " " + str(temp) + ' K'
+        if pos == 20: # Water tank voor
+          percent = int(part[1:4],16) / float(1000)
+          liter = int(part[4:8],16) / float(10000)
+          updates.append({"path": "tanks.freshWater.1.currentLevel", "value": percent})
+          updates.append({"path": "tanks.freshWater.1.currentVolume", "value": liter})
+          updates.append({"path": "tanks.freshWater.1.name", "value": "Voor"})
+          updates.append({"path": "tanks.freshWater.1.type", "value": "fresh water"})
+          updates.append({"path": "tanks.freshWater.1.capacity", "value": "200"})
+        if pos == 23: # Service battery
+          voltage = int(part, 16) / float(1000)
+          updates.append({"path": "electrical.batteries.1.name", "value": 'Service'})
+          updates.append({"path": "electrical.batteries.1.capacity", "value": '240'})
+          updates.append({"path": "electrical.batteries.1.voltage", "value": voltage})
+          updates.append({"path": "electrical.batteries.1.temperature", "value": temp})
+        if pos == 26: # Water tank achter
+          percent = int(part[1:4],16) / float(1000)
+          liter = int(part[4:8],16) / float(10000)
+          updates.append({"path": "tanks.freshWater.2.currentLevel", "value": percent})
+          updates.append({"path": "tanks.freshWater.2.currentVolume", "value": liter})
+          updates.append({"path": "tanks.freshWater.2.name", "value": "Achter"})
+          updates.append({"path": "tanks.freshWater.2.type", "value": "fresh water"})
+          updates.append({"path": "tanks.freshWater.2.capacity", "value": "160"})
+        if pos == 27: # Diesel tank
+          percent = int(part[1:4],16) / float(1000)
+          liter = int(part[4:8],16) / float(10000)
+          updates.append({"path": "tanks.fuel.1.currentLevel", "value": percent})
+          updates.append({"path": "tanks.fuel.1.currentVolume", "value": liter})
+          updates.append({"path": "tanks.fuel.1.name", "value": "Diesel"})
+          updates.append({"path": "tanks.fuel.1.type", "value": "diesel"})
+          updates.append({"path": "tanks.fuel.1.capacity", "value": "160"})
+        if pos == 30: # Start battery
+          voltage = int(part, 16) / float(1000)
+          updates.append({"path": "electrical.batteries.2.name", "value": 'Start'})
+          updates.append({"path": "electrical.batteries.2.capacity", "value": '105'})
+          updates.append({"path": "electrical.batteries.2.voltage", "value": voltage})
+          updates.append({"path": "electrical.batteries.2.temperature", "value": temp})
+        if pos == 35: # Ankerlier battery
+          voltage = int(part, 16) / float(1000)
+          updates.append({"path": "electrical.batteries.3.name", "value": 'Ankerlier'})
+          updates.append({"path": "electrical.batteries.3.capacity", "value": '105'})
+          updates.append({"path": "electrical.batteries.3.voltage", "value": voltage})
+          updates.append({"path": "electrical.batteries.3.temperature", "value": temp})
+        if pos == 40: # Boegschroef battery
+          voltage = int(part, 16) / float(1000)
+          updates.append({"path": "electrical.batteries.4.name", "value": 'Boegschroef'})
+          updates.append({"path": "electrical.batteries.4.capacity", "value": '50'})
+          updates.append({"path": "electrical.batteries.4.voltage", "value": voltage})
+          updates.append({"path": "electrical.batteries.4.temperature", "value": temp})
+
+        responseB[pos] = part
+      pos += 1
 
 
-#    elif response[18] == 'c':
-#      if len(responseC) == 0:
-#	responseC = parse(response)
-#      else:
-#	pos = 0
-#        for part in parse(response):
-#	  if responseC[pos] != part:
-#	    # print "New C(" + str(pos) + "): " + str(part) + " was: " + str(responseC[pos])
-#            responseC[pos] = part
-#	  pos += 1
-
-    sys.stdout.flush()
+    # Some engine lines
+    updates.append({"path": "propulsion.1.drive.label", "value": 'Yanmar 3jh4e'})
+    updates.append({"path": "propulsion.1.drive.type", "value": 'shaft'})
+    updates.append({"path": "propulsion.1.fuel.type", "value": 'diesel'})
 
     delta = {
         "updates": [
@@ -190,5 +253,6 @@ while True:
         ]
     }
     print json.dumps(delta)
-    time.sleep (5)
+    sys.stdout.flush()
+    time.sleep (1)
     empty_socket(client)

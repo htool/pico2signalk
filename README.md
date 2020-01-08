@@ -9,6 +9,9 @@ The code starts listening for udp data broadcasted by th Pico.
 Then it will get the iriginating host and connect on tcp/5001 to get the names of the values.
 This will need some rework once I have more sensors up and running.
 
+SignalK integration based on:
+  https://github.com/SignalK/sk-plugin-python-demo
+
 This is what I added to SignalK's settings.json:
 
     {
@@ -24,3 +27,4 @@ This is what I added to SignalK's settings.json:
         "type": "providers/from_json"
       }]
     },
+
