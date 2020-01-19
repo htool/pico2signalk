@@ -71,12 +71,21 @@ def send_receive(message):
     response = response + hex + ' '
   return response
 
+def open_tcp(pico_ip):
+  try:
+    # Create a TCP stream socket with address family of IPv4 (INET)
+    serverport = 5001
+    # Connect to the server at given IP and port
+    s.connect((pico_ip, serverport))
+    return
+  except:
+    print "Connection to " + pico_ip + ":5001 failed. Retrying in 1 sec."
+    time.sleep(1)
+    # try again
+    return open_tcp(pico_ip)
+  
 def get_pico_config(pico_ip):
-  # Create a TCP stream socket with address family of IPv4 (INET)
-  serverport = 5001
-  # Connect to the server at given IP and port
-  s.connect((pico_ip, serverport))
-
+  open_tcp(pico_ip)
 
   message = "00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 00 ff 01 03 00 00 00 00 ff 00 00 00 00 ff e8 19"
   response = send_receive(message)
@@ -235,12 +244,6 @@ while True:
 
         responseB[pos] = part
       pos += 1
-
-
-    # Some engine lines
-    updates.append({"path": "propulsion.1.drive.label", "value": 'Yanmar 3jh4e'})
-    updates.append({"path": "propulsion.1.drive.type", "value": 'shaft'})
-    updates.append({"path": "propulsion.1.fuel.type", "value": 'diesel'})
 
     delta = {
         "updates": [
