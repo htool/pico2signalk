@@ -6,6 +6,7 @@ import sys
 import select
 import requests
 import json
+import brainsmoke
 
 responses = [''] * 200
 sensors = ['']
@@ -22,6 +23,10 @@ def empty_socket(sock):
 
 def striplist(l):
     return([x.strip() for x in l])
+
+def hexdump(b):
+    hex = ' '.join(["%02x" % b ])
+    return hex[0:2] + " " + hex[2:4]
 
 def HexToByte( hexStr ):
     """
@@ -58,6 +63,12 @@ def parse(message):
   values = striplist(values)
   return values
 
+def add_crc(message):
+  fields=message.split()
+  message_int=[int(x,16) for x in fields[1:]]
+  crc_int = brainsmoke.calc_rev_crc16(message_int[0:-1])
+  return message + " " + hexdump(crc_int)
+
 def send_receive(message):
   bytes = message.count(' ') + 1
   # print ("Sending : " + message + " (" + str(bytes) + " bytes)")
@@ -87,21 +98,16 @@ def open_tcp(pico_ip):
 def get_pico_config(pico_ip):
   open_tcp(pico_ip)
 
-  message = "00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 00 ff 01 03 00 00 00 00 ff 00 00 00 00 ff e8 19"
-  response = send_receive(message)
-  # print str(parse(response))
-  # CRC checksums (due to lack of knowing how to calculate these)
-  CRCs = ('e8 19','3c 33','51 c4','85 ee','8a 2a','5e 00','33 f7','e7 dd','2c 7f','f8 55','95 a2','41 88','4e 4c','9a 66','f7 91','23 bb','71 5c','a5 76','c8 81','1c ab','13 6f','c7 45','aa b2','7e 98','b5 3a','61 10')
   response_list = []
   fluid = ['fresh water','diesel']
   fluid_type = ['freshWater','fuel']
-  pos = 0
-  for crc in CRCs:
+  for pos in range(25):
     sensor_name = ''
     sensor_type = ''
     sensor_capacity = 0
     sensor_fluid = ''
-    message = ('00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 ' + "%02x" % pos + ' ff 01 03 00 00 00 00 ff 00 00 00 00 ff ' + crc)
+    message = ('00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 ' + "%02x" % pos + ' ff 01 03 00 00 00 00 ff 00 00 00 00 ff')
+    message = add_crc(message)
     response = send_receive(message)
     if response != '':
       response_list = parse(response)
@@ -137,17 +143,13 @@ def get_pico_config(pico_ip):
           sensor_type = 'temperature'
           # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type)
       # print (responses[pos] + "  " + str(response_list))
-    pos += 1
 
   # Close tcp connection
   s.close()
 
 get_pico_config('192.168.4.225')
 
-# exit()
-
 # print "Start UDP listener"
-
 # Setup UDP broadcasting listener
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
@@ -157,12 +159,23 @@ client.bind(("", 43210))
 responseB = [''] * 50
 responseC = []
 
+
+# Main loop
 while True:
     updates = []
-    message, addr = client.recvfrom(1024)
+    message = ''
+    while True:
+      message, addr = client.recvfrom(2048)
+      if len(message) > 100 and len(message) < 500:
+        break
+
     if responses[0] == '':
       get_pico_config(addr[0])
+
     response = BinToHex(message)
+    if len(message) > 300:
+      print response
+
     if response[18] == 'b':
       if len(response) == 0:
         continue
@@ -188,7 +201,8 @@ while True:
         if pos == 3:
           pressure = int(part[4:8],16) + 65536
           #print responses[pos-1] + " " + pressure + ' mBar'
-          updates.append({"path": "environment.outside.pressure", "value": pressure})
+          updates.append({"path": "environment.inside.pressure", "value": pressure}) 
+          updates.append({"path": "environment.outside.pressure", "value": pressure}) # assuming same pressure in the boat as outside
         if pos == 19:
           temp = ("%.2f" % round(int(part,16) / float(10) + 273.15, 2))
           updates.append({"path": "environment.inside.temperature", "value": temp})
@@ -257,5 +271,5 @@ while True:
     }
     print json.dumps(delta)
     sys.stdout.flush()
-    time.sleep (1)
+    time.sleep (0.9)
     empty_socket(client)
