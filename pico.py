@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import time
 import socket
 import sys 
@@ -7,11 +8,18 @@ import select
 import requests
 import json
 import brainsmoke
+import copy
+import dictdiffer                                          
+
 
 responses = [''] * 200
 sensors = ['']
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+def debug(string):
+    if os.environ.has_key('DEBUG'):
+      print string
 
 def empty_socket(sock):
     """remove the data present on the socket"""
@@ -26,6 +34,10 @@ def striplist(l):
 
 def hexdump(b):
     hex = ' '.join(["%02x" % b ])
+    if (len(hex) == 3):
+      hex = "0" + hex
+    if (len(hex) == 2):
+      hex = "00" + hex
     return hex[0:2] + " " + hex[2:4]
 
 def HexToByte( hexStr ):
@@ -63,6 +75,67 @@ def parse(message):
   values = striplist(values)
   return values
 
+def getNextField(response):
+  # debug( "field_nr: " + response[0:2])
+  field_nr = int(response[0:2], 16)
+  # debug( "field_type: " + response[3:6])
+  field_type = int(response[3:5] , 16)
+  if (field_type == 1):
+      # debug( response)
+      # debug( "a: " + response[6:11].replace(' ',''))
+      # debug( "b: " + response[12:17].replace(' ',''))
+      data = response[6:17]
+      # debug( "data: " + data)
+      response = response[21:]
+      if (data[0:11] == '7f ff ff ff'):
+        return field_nr, '', response
+      else:
+        a = int(data[0:5].replace(' ','') , 16)
+        b = int(data[6:11].replace(' ','') , 16)
+        # field_data = [a, b, data]
+        field_data = [a, b]
+        return (field_nr, field_data, response)
+  if (field_type == 3):
+      # debug( response)
+      # debug( "a: " + response[21:27].replace(' ',''))
+      # debug( "b: " + response[27:32].replace(' ',''))
+      data = response[21:32]
+      # debug( "data: " + data)
+      response = response[36:]
+      if (data[0:11] == '7f ff ff ff'):
+        return field_nr, '', response
+      else:
+        a = int(data[0:5].replace(' ','') , 16)
+        b = int(data[6:11].replace(' ','') , 16)
+        # field_data = [a, b, data]
+        field_data = [a, b]
+        return field_nr, field_data, response
+  if (field_type == 4): # Text string
+      # Strip first part
+      response = response[21:]
+      nextHex = response[0:2]
+      word = ''
+      while (nextHex != '00'):
+        word += nextHex
+        response = response[3:]
+        nextHex = response[0:2]
+      word = HexToByte(word)
+      # debug( "Word: " + word)
+      response = response[6:] # Strip seperator
+      return field_nr, word, response
+  debug( "Uknown field type " + str(field_type))
+      
+def parseResponse(response):
+  dict = {}
+  # strip header
+  response = response[42:]
+  while (len(response) > 6):
+    field_nr, field_data, response = getNextField(response)
+    # debug( str(field_nr) + " " + field_data)
+    # debug( response + " " + str(len(response)))
+    dict[field_nr] = field_data
+  return dict
+
 def add_crc(message):
   fields=message.split()
   message_int=[int(x,16) for x in fields[1:]]
@@ -71,7 +144,7 @@ def add_crc(message):
 
 def send_receive(message):
   bytes = message.count(' ') + 1
-  # print ("Sending : " + message + " (" + str(bytes) + " bytes)")
+  # debug( ("Sending : " + message + " (" + str(bytes) + " bytes)"))
   message = HexToByte(message)
   s.sendall(message)
   response = ''
@@ -90,66 +163,76 @@ def open_tcp(pico_ip):
     s.connect((pico_ip, serverport))
     return
   except:
-    print "Connection to " + pico_ip + ":5001 failed. Retrying in 1 sec."
+    debug( "Connection to " + pico_ip + ":5001 failed. Retrying in 1 sec.")
     time.sleep(1)
     # try again
     return open_tcp(pico_ip)
-  
-def get_pico_config(pico_ip):
-  open_tcp(pico_ip)
 
+def get_pico_config(pico_ip):
+  config = {}
+  open_tcp(pico_ip)
   response_list = []
   fluid = ['fresh water','diesel']
   fluid_type = ['freshWater','fuel']
-  for pos in range(25):
-    sensor_name = ''
-    sensor_type = ''
-    sensor_capacity = 0
-    sensor_fluid = ''
+  message = ('00 00 00 00 00 ff 02 04 8c 55 4b 00 03 ff')
+  message = add_crc(message)
+  response = send_receive(message)
+  debug( "Response: " + response)
+  # Response: 00 00 00 00 00 ff 02 04 8c 55 4b 00 11 ff 01 01 00 00 00 1e ff 02 01 00 00 00 30 ff 32 cf
+  req_count = int(response.split()[19], 16)
+  debug( "req_count: " + str(req_count))
+
+  for pos in range(req_count):
     message = ('00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 ' + "%02x" % pos + ' ff 01 03 00 00 00 00 ff 00 00 00 00 ff')
     message = add_crc(message)
     response = send_receive(message)
-    if response != '':
-      response_list = parse(response)
-    if len(response_list) > 6:
-      responses[pos] = response_list[7].replace(' ','').decode('hex')
-      sensor_name = response_list[7].replace(' ','').decode('hex')
-    if pos == 5:
-      sensor_name = 'Barometer'
-      sensor_type = 'pressure'
-      # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type)
-    if pos == 8:
-      sensor_name = 'Service'
-      sensor_type = 'Battery'
-      # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type)
-    if pos >= 19:
-      try:
-        capacityHex = response_list[13].replace(' ','')
-        sensor_capacity = int(capacityHex[4:8],16) / 10
-        fluidHex = response_list[11].replace(' ','')
-        sensor_fluid = fluid[int(fluidHex[4:8],16) - 1]
-        sensor_type = fluid_type[int(fluidHex[4:8],16) - 1]
-        # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type) + "  fluid: " + sensor_fluid + "  capacity: " + str(sensor_capacity)
-        updates.append({"path": "tanks." + sensor_type + ".1.name", "value": sensor_name})
-        updates.append({"path": "tanks." + sensor_type + ".1.type", "value": sensor_fluid})
-        updates.append({"path": "tanks." + sensor_type + ".1.capacity", "value": sensor_capacity})
-      except:
-        try:
-          capacityHex = response_list[11].replace(' ','')
-          sensor_capacity = int(capacityHex[4:8],16) / 100
-          sensor_type = 'battery'
-          # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type) + "  capacity: " + str(sensor_capacity)
-        except:
-          sensor_type = 'temperature'
-          # print "Sensor name: " + sensor_name + "  type: " + str(sensor_type)
-      # print (responses[pos] + "  " + str(response_list))
+    element = parseResponse(response)
+    config[pos] = element
 
   # Close tcp connection
   s.close()
+  return config
 
-get_pico_config('192.168.4.225')
+def createSensorList (config):
+  sensorList = {}
+  fluid = ['Unknown', 'freshWater', 'fuel']
+  fluid_type = ['Unknown', 'fresh water', 'diesel']
+  for entry in config.keys():
+    # debug( config[entry])
+    # Set id
+    id = config[entry][0][1]
+    # Set type
+    type = config[entry][1][1]
+    sensorList[id] = {}
+    if (type == 3):
+      type = 'thermometer'
+      sensorList[id].update ({'name': config[entry][3]})
+    if (type == 5):
+      type = 'barometer'
+      sensorList[id].update ({'name': config[entry][3]})
+    if (type == 8):
+      type = 'tank'
+      sensorList[id].update ({'name': config[entry][3]})
+      sensorList[id].update ({'capacity': config[entry][7][1]/10})
+      sensorList[id].update ({'fluid_type': fluid_type[config[entry][6][1]]})
+      sensorList[id].update ({'fluid': fluid[config[entry][6][1]]})
+    if (type == 9):
+      type = 'battery'
+      sensorList[id].update ({'name': config[entry][3]})
+      sensorList[id].update ({'capacity.nominal': config[entry][5][1]*36*12}) # In Joule
+    sensorList[id].update ({'type': type})
+  return sensorList
 
-# print "Start UDP listener"
+config = get_pico_config('192.168.4.225')
+debug( config)
+
+# sensorList = {}
+sensorList = createSensorList(config)
+debug( sensorList)
+
+# exit(0)
+
+debug( "Start UDP listener")
 # Setup UDP broadcasting listener
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
@@ -159,105 +242,112 @@ client.bind(("", 43210))
 responseB = [''] * 50
 responseC = []
 
+old_element = {} 
 
 # Main loop
 while True:
     updates = []
+    sensorListTmp = copy.deepcopy(sensorList)
+    
     message = ''
     while True:
       message, addr = client.recvfrom(2048)
-      if len(message) > 100 and len(message) < 500:
+      if len(message) > 100 and len(message) < 1000:
         break
 
-    if responses[0] == '':
-      get_pico_config(addr[0])
+    # if responses[0] == '':
+      # get_pico_config(addr[0])
 
     response = BinToHex(message)
-    if len(message) > 300:
-      print response
+    debug(response)
+    # if len(message) > 300:
+      # debug( response
 
     if response[18] == 'b':
       if len(response) == 0:
         continue
       else:
         pos = 0
-    # Strip header to avoid confusion
-    response = response[42:]
-    # for part in parse(response):
-    while pos < 43:
-      part = response[0:18]
-      response = response[21:]
-      pos = int(part[0:2], 16)
-      # print "pos: " + str(pos) + "  part: " + part # + "   response: " + response
-      part = part[6:].replace(' ','')
-      if pos < 43:
-        # if responseB[pos] != part:
-        # print part + " " + str(pos) + " was: " + str(responseB[pos])
-        if pos == 5:
-          voltage = int(part, 16) / float(1000)
-        #  print responses[pos-1] + " " + voltage + ' volt'
-        # if pos == 14:
-        #  print responses[pos-1] + " " + str(int(part,16)) + ' Ohm'
-        if pos == 3:
-          pressure = int(part[4:8],16) + 65536
-          #print responses[pos-1] + " " + pressure + ' mBar'
-          updates.append({"path": "environment.inside.pressure", "value": pressure}) 
-          updates.append({"path": "environment.outside.pressure", "value": pressure}) # assuming same pressure in the boat as outside
-        if pos == 19:
-          temp = ("%.2f" % round(int(part,16) / float(10) + 273.15, 2))
-          updates.append({"path": "environment.inside.temperature", "value": temp})
-          # print responses[pos-1] + " " + str(temp) + ' K'
-        if pos == 20: # Water tank voor
-          percent = int(part[1:4],16) / float(1000)
-          liter = int(part[4:8],16) / float(10000)
-          updates.append({"path": "tanks.freshWater.1.currentLevel", "value": percent})
-          updates.append({"path": "tanks.freshWater.1.currentVolume", "value": liter})
-          updates.append({"path": "tanks.freshWater.1.name", "value": "Voor"})
-          updates.append({"path": "tanks.freshWater.1.type", "value": "fresh water"})
-          updates.append({"path": "tanks.freshWater.1.capacity", "value": "200"})
-        if pos == 23: # Service battery
-          voltage = int(part, 16) / float(1000)
-          updates.append({"path": "electrical.batteries.1.name", "value": 'Service'})
-          updates.append({"path": "electrical.batteries.1.capacity", "value": '240'})
-          updates.append({"path": "electrical.batteries.1.voltage", "value": voltage})
-          updates.append({"path": "electrical.batteries.1.temperature", "value": temp})
-        if pos == 26: # Water tank achter
-          percent = int(part[1:4],16) / float(1000)
-          liter = int(part[4:8],16) / float(10000)
-          updates.append({"path": "tanks.freshWater.2.currentLevel", "value": percent})
-          updates.append({"path": "tanks.freshWater.2.currentVolume", "value": liter})
-          updates.append({"path": "tanks.freshWater.2.name", "value": "Achter"})
-          updates.append({"path": "tanks.freshWater.2.type", "value": "fresh water"})
-          updates.append({"path": "tanks.freshWater.2.capacity", "value": "160"})
-        if pos == 27: # Diesel tank
-          percent = int(part[1:4],16) / float(1000)
-          liter = int(part[4:8],16) / float(10000)
-          updates.append({"path": "tanks.fuel.1.currentLevel", "value": percent})
-          updates.append({"path": "tanks.fuel.1.currentVolume", "value": liter})
-          updates.append({"path": "tanks.fuel.1.name", "value": "Diesel"})
-          updates.append({"path": "tanks.fuel.1.type", "value": "diesel"})
-          updates.append({"path": "tanks.fuel.1.capacity", "value": "160"})
-        if pos == 30: # Start battery
-          voltage = int(part, 16) / float(1000)
-          updates.append({"path": "electrical.batteries.2.name", "value": 'Start'})
-          updates.append({"path": "electrical.batteries.2.capacity", "value": '105'})
-          updates.append({"path": "electrical.batteries.2.voltage", "value": voltage})
-          updates.append({"path": "electrical.batteries.2.temperature", "value": temp})
-        if pos == 35: # Ankerlier battery
-          voltage = int(part, 16) / float(1000)
-          updates.append({"path": "electrical.batteries.3.name", "value": 'Ankerlier'})
-          updates.append({"path": "electrical.batteries.3.capacity", "value": '105'})
-          updates.append({"path": "electrical.batteries.3.voltage", "value": voltage})
-          updates.append({"path": "electrical.batteries.3.temperature", "value": temp})
-        if pos == 40: # Boegschroef battery
-          voltage = int(part, 16) / float(1000)
-          updates.append({"path": "electrical.batteries.4.name", "value": 'Boegschroef'})
-          updates.append({"path": "electrical.batteries.4.capacity", "value": '50'})
-          updates.append({"path": "electrical.batteries.4.voltage", "value": voltage})
-          updates.append({"path": "electrical.batteries.4.temperature", "value": temp})
 
-        responseB[pos] = part
-      pos += 1
+    element = parseResponse(response)
+    debug( element)
+    for diff in list(dictdiffer.diff(old_element, element)):         
+      debug( diff )
+    old_element = copy.deepcopy(element)
+
+    # Add values to sensorList copy
+    sensorListTmp[5].update({'pressure': element[3][1] + 65536})
+    sensorListTmp[18].update({'temperature': float(("%.2f" % round(element[19][1] / float(10) + 273.15, 2)))})
+
+    # Tank voor
+    sensorListTmp[21].update({'currentLevel': element[20][0] / float(1000)})
+    sensorListTmp[21].update({'currentVolume': element[20][1] / float(10000)})
+
+    # Tank achter
+    sensorListTmp[19].update({'currentLevel': element[26][0] / float(1000)})
+    sensorListTmp[19].update({'currentVolume': element[26][1] / float(10000)})
+        
+    # Tank diesel
+    sensorListTmp[22].update({'currentLevel': element[27][0] / float(1000)})
+    sensorListTmp[22].update({'currentVolume': element[27][1] / float(10000)})
+
+    # Service accu 
+    sensorListTmp[20].update({'voltage': element[23][1] / float(1000)})
+    sensorListTmp[20].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+    sensorListTmp[20].update({'current': element[22][1] / float(100)})
+    if (element[21][0] == 16000):
+      sensorListTmp[20].update({'capacity.remaining': element[21][1] * 36 * 12})
+      sensorListTmp[20].update({'capacity.timeRemaining': round(element[21][1] * 3600 / element[22][1] ) })
+      sensorListTmp[20].update({'stateOfCharge': round(element[21][1] * 36 * 12 / sensorListTmp[20]['capacity.nominal']) })
+
+    # Start accu
+    sensorListTmp[23].update({'voltage': element[30][0] / float(1000)})
+    sensorListTmp[23].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+    if (element[28][0] == 16000):
+      sensorListTmp[23].update({'capacity.remaining': element[28][1] * 36 * 12})
+      sensorListTmp[23].update({'stateOfCharge': round(element[28][1] * 36 * 12 / sensorListTmp[23]['capacity.nominal']) })
+
+    # Ankerlier accu
+    sensorListTmp[24].update({'voltage': element[35][0] / float(1000)})
+    sensorListTmp[24].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+    sensorListTmp[24].update({'stateOfCharge': 0.99})
+
+    # Boegschroef accu
+    sensorListTmp[25].update({'voltage': element[40][0] / float(1000)})
+    sensorListTmp[25].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+    sensorListTmp[25].update({'stateOfCharge': 0.99})
+
+    # debug( sensorListTmp
+
+    # Populate JSON
+    batteryInstance = 1
+    tankInstance = 1
+    for key, value in sensorListTmp.items():
+      if (value['type'] == 'battery'):
+        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".name", "value": value['name']})
+        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.nominal", "value": value['capacity.nominal']})
+        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".voltage", "value": value['voltage']})
+        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".temperature", "value": value['temperature']})
+        if value.has_key('current'):
+          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".current", "value": value['current']})
+        if value.has_key('capacity.remaining'):
+          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.remaining", "value": value['capacity.remaining']})
+          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".stateOfCharge", "value": value['stateOfCharge']})
+        if value.has_key('capacity.timeRemaining'):
+          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.timeRemaining", "value": value['capacity.timeRemaining']})
+        batteryInstance += 1
+      if (value['type'] == 'barometer'):
+        updates.append({"path": "environment.inside.pressure", "value": value['pressure']}) 
+        updates.append({"path": "environment.outside.pressure", "value": value['pressure']}) # assuming same pressure in the boat as outside
+      if (value['type'] == 'thermometer'):
+        updates.append({"path": "environment.inside.temperature", "value": value['temperature']})
+      if (value['type'] == 'tank'):
+        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentLevel", "value": value['currentLevel']})
+        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentVolume", "value": value['currentVolume']})
+        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".name", "value": value['name']})
+        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".type", "value": value['fluid_type']})
+        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".capacity", "value": value['capacity']})
+        tankInstance += 1
 
     delta = {
         "updates": [
