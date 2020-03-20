@@ -19,7 +19,9 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def debug(string):
     if os.environ.has_key('DEBUG'):
-      print string
+      if os.environ['DEBUG'] == 'pico':
+        print string
+        sys.stdout.flush()
 
 def empty_socket(sock):
     """remove the data present on the socket"""
@@ -87,14 +89,14 @@ def getNextField(response):
       data = response[6:17]
       # debug( "data: " + data)
       response = response[21:]
-      if (data[0:11] == '7f ff ff ff'):
-        return field_nr, '', response
-      else:
-        a = int(data[0:5].replace(' ','') , 16)
-        b = int(data[6:11].replace(' ','') , 16)
-        # field_data = [a, b, data]
-        field_data = [a, b]
-        return (field_nr, field_data, response)
+      # if (data[0:11] == '7f ff ff ff'):
+        # return field_nr, '', response
+      # else:
+      a = int(data[0:5].replace(' ','') , 16)
+      b = int(data[6:11].replace(' ','') , 16)
+       # field_data = [a, b, data]
+      field_data = [a, b]
+      return (field_nr, field_data, response)
   if (field_type == 3):
       # debug( response)
       # debug( "a: " + response[21:27].replace(' ',''))
@@ -179,7 +181,7 @@ def get_pico_config(pico_ip):
   response = send_receive(message)
   debug( "Response: " + response)
   # Response: 00 00 00 00 00 ff 02 04 8c 55 4b 00 11 ff 01 01 00 00 00 1e ff 02 01 00 00 00 30 ff 32 cf
-  req_count = int(response.split()[19], 16)
+  req_count = int(response.split()[19], 16) + 1
   debug( "req_count: " + str(req_count))
 
   for pos in range(req_count):
@@ -252,6 +254,7 @@ while True:
     message = ''
     while True:
       message, addr = client.recvfrom(2048)
+      debug ("Received packet with length " + str(len(message)))
       if len(message) > 100 and len(message) < 1000:
         break
 
@@ -270,54 +273,85 @@ while True:
         pos = 0
 
     element = parseResponse(response)
-    debug( element)
+    debug(element)
     for diff in list(dictdiffer.diff(old_element, element)):         
       debug( diff )
     old_element = copy.deepcopy(element)
 
     # Add values to sensorList copy
-    sensorListTmp[5].update({'pressure': element[3][1] + 65536})
-    sensorListTmp[18].update({'temperature': float(("%.2f" % round(element[19][1] / float(10) + 273.15, 2)))})
+
+    # Barometer
+    element_id = 3
+    sensorListTmp_id = 5
+    sensorListTmp[sensorListTmp_id].update({'pressure': element[element_id][1] + 65536})
+
+    # Kajuit
+    element_id = 24
+    sensorListTmp_id = 22
+    sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))})
 
     # Tank voor
-    sensorListTmp[21].update({'currentLevel': element[20][0] / float(1000)})
-    sensorListTmp[21].update({'currentVolume': element[20][1] / float(10000)})
+    sensorListTmp_id = 23
+    element_id = 25
+    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
+    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
 
     # Tank achter
-    sensorListTmp[19].update({'currentLevel': element[26][0] / float(1000)})
-    sensorListTmp[19].update({'currentVolume': element[26][1] / float(10000)})
+    sensorListTmp_id = 24
+    element_id = 26
+    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
+    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
         
     # Tank diesel
-    sensorListTmp[22].update({'currentLevel': element[27][0] / float(1000)})
-    sensorListTmp[22].update({'currentVolume': element[27][1] / float(10000)})
+    sensorListTmp_id = 25
+    element_id = 27
+    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
+    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
+
 
     # Service accu 
-    sensorListTmp[20].update({'voltage': element[23][1] / float(1000)})
-    sensorListTmp[20].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
-    sensorListTmp[20].update({'current': element[22][1] / float(100)})
-    if (element[21][0] == 16000):
-      sensorListTmp[20].update({'capacity.remaining': element[21][1] * 36 * 12})
-      sensorListTmp[20].update({'capacity.timeRemaining': round(element[21][1] * 3600 / element[22][1] ) })
-      sensorListTmp[20].update({'stateOfCharge': round(element[21][1] * 36 * 12 / sensorListTmp[20]['capacity.nominal']) })
+    sensorListTmp_id = 26
+    element_id = 28
+    if (element[element_id][0] == 16000):
+      sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * 36 * 12})
+      sensorListTmp[sensorListTmp_id].update({'stateOfCharge': round(element[element_id][1] * 36 * 12 / sensorListTmp[sensorListTmp_id]['capacity.nominal']) })
+    sensorListTmp[sensorListTmp_id].update({'current': element[element_id + 1][1] / float(100)})
+    sensorListTmp[sensorListTmp_id].update({'capacity.timeRemaining': round(element[element_id][1] * 3600 / element[element_id + 1][1] ) })
+    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
+    # Temperature Service
+    # sensorListTmp_id = 27
+    element_id = 33
+    # debug("Temp service: " + str(float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))))
+    sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))})
 
     # Start accu
-    sensorListTmp[23].update({'voltage': element[30][0] / float(1000)})
-    sensorListTmp[23].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
-    if (element[28][0] == 16000):
-      sensorListTmp[23].update({'capacity.remaining': element[28][1] * 36 * 12})
-      sensorListTmp[23].update({'stateOfCharge': round(element[28][1] * 36 * 12 / sensorListTmp[23]['capacity.nominal']) })
-
-    # Ankerlier accu
-    sensorListTmp[24].update({'voltage': element[35][0] / float(1000)})
-    sensorListTmp[24].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
-    sensorListTmp[24].update({'stateOfCharge': 0.99})
+    sensorListTmp_id = 28
+    element_id = 34
+    if (element[element_id][0] == 16000):
+      sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * 36 * 12})
+      sensorListTmp[sensorListTmp_id].update({'stateOfCharge': round(element[element_id][1] * 36 * 12 / sensorListTmp[sensorListTmp_id]['capacity.nominal']) })
+    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
+    # sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
 
     # Boegschroef accu
-    sensorListTmp[25].update({'voltage': element[40][0] / float(1000)})
-    sensorListTmp[25].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
-    sensorListTmp[25].update({'stateOfCharge': 0.99})
+    sensorListTmp_id = 29
+    element_id = 39
+    if (element[element_id][0] == 16000):
+      sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * 36 * 12})
+      sensorListTmp[sensorListTmp_id].update({'stateOfCharge': round(element[element_id][1] * 36 * 12 / sensorListTmp[sensorListTmp_id]['capacity.nominal']) })
+    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
+    #sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
 
-    # debug( sensorListTmp
+    # Ankerlier accu
+    # element_id = 42
+    # sensorListTmp_id = 30
+    # if (element[element_id][0] == 16000):
+      # sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * 36 * 12})
+      # sensorListTmp[sensorListTmp_id].update({'stateOfCharge': round(element[element_id][1] * 36 * 12 / sensorListTmp[sensorListTmp_id]['capacity.nominal']) })
+    # sensorListTmp[sensorListTmp_id].update({'stateOfCharge': element[element_id + 2 ][0] / float(1000)})
+    # sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][0] / float(1000)})
+    #sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+    debug( sensorListTmp )
 
     # Populate JSON
     batteryInstance = 1
@@ -326,8 +360,10 @@ while True:
       if (value['type'] == 'battery'):
         updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".name", "value": value['name']})
         updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.nominal", "value": value['capacity.nominal']})
-        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".voltage", "value": value['voltage']})
-        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".temperature", "value": value['temperature']})
+        if value.has_key('voltage'):
+          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".voltage", "value": value['voltage']})
+        if value.has_key('temperature'):
+          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".temperature", "value": value['temperature']})
         if value.has_key('current'):
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".current", "value": value['current']})
         if value.has_key('capacity.remaining'):
@@ -339,7 +375,7 @@ while True:
       if (value['type'] == 'barometer'):
         updates.append({"path": "environment.inside.pressure", "value": value['pressure']}) 
         updates.append({"path": "environment.outside.pressure", "value": value['pressure']}) # assuming same pressure in the boat as outside
-      if (value['type'] == 'thermometer'):
+      if (value['type'] == 'thermometer' and value['name'] == 'Kajuit'):
         updates.append({"path": "environment.inside.temperature", "value": value['temperature']})
       if (value['type'] == 'tank'):
         updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentLevel", "value": value['currentLevel']})
