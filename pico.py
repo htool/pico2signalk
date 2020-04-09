@@ -281,66 +281,69 @@ while True:
     # Add values to sensorList copy
 
     # Barometer
-    element_id = 3
     sensorListTmp_id = 5
+    element_id = 3
     sensorListTmp[sensorListTmp_id].update({'pressure': element[element_id][1] + 65536})
 
     # Kajuit
-    element_id = 24
     sensorListTmp_id = 22
+    element_id = 24
     sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))})
 
-    # Tank voor
+    # Tank achter
     sensorListTmp_id = 23
     element_id = 25
     sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
     sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
 
-    # Tank achter
+    # Service accu 
     sensorListTmp_id = 24
     element_id = 26
-    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
-    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
-        
-    # Tank diesel
-    sensorListTmp_id = 25
-    element_id = 27
-    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
-    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
-
-
-    # Service accu 
-    sensorListTmp_id = 26
-    element_id = 28
-    if (element[element_id][0] == 16000):
-      sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * 36 * 12})
-      sensorListTmp[sensorListTmp_id].update({'stateOfCharge': round(element[element_id][1] * 36 * 12 / sensorListTmp[sensorListTmp_id]['capacity.nominal']) })
+    stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
+    debug("Service %: " + str(stateOfCharge))
+    sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
+    sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
+    sensorListTmp[sensorListTmp_id].update({'capacity.timeRemaining': round(((element[element_id][1] * 3600) / element[element_id + 1][1]) * stateOfCharge) })
     sensorListTmp[sensorListTmp_id].update({'current': element[element_id + 1][1] / float(100)})
-    sensorListTmp[sensorListTmp_id].update({'capacity.timeRemaining': round(element[element_id][1] * 3600 / element[element_id + 1][1] ) })
     sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
     # Temperature Service
-    # sensorListTmp_id = 27
-    element_id = 33
+    # sensorListTmp_id = 25
+    element_id = 31
     # debug("Temp service: " + str(float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))))
     sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))})
-
+    
     # Start accu
-    sensorListTmp_id = 28
-    element_id = 34
-    if (element[element_id][0] == 16000):
-      sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * 36 * 12})
-      sensorListTmp[sensorListTmp_id].update({'stateOfCharge': round(element[element_id][1] * 36 * 12 / sensorListTmp[sensorListTmp_id]['capacity.nominal']) })
+    sensorListTmp_id = 26
+    element_id = 32
+    stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
+    debug("Start %: " + str(stateOfCharge))
+    sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
+    sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
     sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
     # sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
 
     # Boegschroef accu
-    sensorListTmp_id = 29
-    element_id = 39
-    if (element[element_id][0] == 16000):
-      sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * 36 * 12})
-      sensorListTmp[sensorListTmp_id].update({'stateOfCharge': round(element[element_id][1] * 36 * 12 / sensorListTmp[sensorListTmp_id]['capacity.nominal']) })
+    sensorListTmp_id = 27
+    element_id = 37
+    stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
+    debug("Boegschroef %: " + str(stateOfCharge))
+    sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
+    sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
     sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
     #sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+
+    # Tank voor
+    sensorListTmp_id = 28
+    element_id = 42
+    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
+    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
+
+    # Tank diesel
+    sensorListTmp_id = 29
+    element_id = 43
+    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
+    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
+
 
     # Ankerlier accu
     # element_id = 42
