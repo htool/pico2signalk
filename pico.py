@@ -166,7 +166,7 @@ def open_tcp(pico_ip):
     return
   except:
     debug( "Connection to " + pico_ip + ":5001 failed. Retrying in 1 sec.")
-    time.sleep(1)
+    time.sleep(5)
     # try again
     return open_tcp(pico_ip)
 
@@ -212,12 +212,23 @@ def createSensorList (config):
     id = config[entry][0][1]
     # Set type
     type = config[entry][1][1]
+    # Default elementsize
+    elementsize = 1
     sensorList[id] = {}
+    if (type == 1):
+      type = 'volt'
+      sensorList[id].update ({'name': config[entry][3]})
+    if (type == 2):
+      type = 'current'
+      sensorList[id].update ({'name': config[entry][3]})
     if (type == 3):
       type = 'thermometer'
       sensorList[id].update ({'name': config[entry][3]})
     if (type == 5):
       type = 'barometer'
+      sensorList[id].update ({'name': config[entry][3]})
+    if (type == 6):
+      type = 'ohm'
       sensorList[id].update ({'name': config[entry][3]})
     if (type == 8):
       type = 'tank'
