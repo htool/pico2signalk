@@ -3,13 +3,13 @@
 import os
 import time
 import socket
-import sys 
+import sys
 import select
 import requests
 import json
 import brainsmoke
 import copy
-import dictdiffer                                          
+import dictdiffer
 
 
 responses = [''] * 200
@@ -126,7 +126,7 @@ def getNextField(response):
       response = response[6:] # Strip seperator
       return field_nr, word, response
   debug( "Uknown field type " + str(field_type))
-      
+
 def parseResponse(response):
   dict = {}
   # strip header
@@ -195,6 +195,13 @@ def get_pico_config(pico_ip):
   s.close()
   return config
 
+def toTemperature (temp):
+  // float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2))
+  if temp > 65536:
+      temp = temp - 65536
+  temp2 = float(("%.2f" % round(temp / float(10) + 273.15, 2))
+  return temp2
+
 def createSensorList (config):
   sensorList = {}
   fluid = ['Unknown', 'freshWater', 'fuel']
@@ -244,13 +251,13 @@ client.bind(("", 43210))
 responseB = [''] * 50
 responseC = []
 
-old_element = {} 
+old_element = {}
 
 # Main loop
 while True:
     updates = []
     sensorListTmp = copy.deepcopy(sensorList)
-    
+
     message = ''
     while True:
       message, addr = client.recvfrom(2048)
@@ -274,7 +281,7 @@ while True:
 
     element = parseResponse(response)
     debug(element)
-    for diff in list(dictdiffer.diff(old_element, element)):         
+    for diff in list(dictdiffer.diff(old_element, element)):
       debug( diff )
     old_element = copy.deepcopy(element)
 
@@ -288,7 +295,7 @@ while True:
     # Kajuit
     sensorListTmp_id = 22
     element_id = 24
-    sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))})
+    sensorListTmp[sensorListTmp_id].update({'temperature': toTemperature(element[element_id][1])})
 
     # Tank achter
     sensorListTmp_id = 23
@@ -296,7 +303,7 @@ while True:
     sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
     sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
 
-    # Service accu 
+    # Service accu
     sensorListTmp_id = 24
     element_id = 26
     stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
@@ -310,8 +317,8 @@ while True:
     # sensorListTmp_id = 25
     element_id = 31
     # debug("Temp service: " + str(float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))))
-    sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))})
-    
+    sensorListTmp[sensorListTmp_id].update({'temperature': toTemperature(element[element_id][1])})
+
     # Start accu
     sensorListTmp_id = 26
     element_id = 32
@@ -376,7 +383,7 @@ while True:
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.timeRemaining", "value": value['capacity.timeRemaining']})
         batteryInstance += 1
       if (value['type'] == 'barometer'):
-        updates.append({"path": "environment.inside.pressure", "value": value['pressure']}) 
+        updates.append({"path": "environment.inside.pressure", "value": value['pressure']})
         updates.append({"path": "environment.outside.pressure", "value": value['pressure']}) # assuming same pressure in the boat as outside
       if (value['type'] == 'thermometer' and value['name'] == 'Kajuit'):
         updates.append({"path": "environment.inside.temperature", "value": value['temperature']})
