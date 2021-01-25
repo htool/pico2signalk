@@ -197,7 +197,7 @@ def get_pico_config(pico_ip):
 
 def toTemperature (temp):
   # Unsigned to signed
-  if temp > 65536:
+  if temp > 32768:
       temp = temp - 65536
   temp2 = float(("%.2f" % round(temp / float(10) + 273.15, 2)))
   return temp2
