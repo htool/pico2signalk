@@ -317,13 +317,26 @@ while True:
     # Service accu
     sensorListTmp_id = 24
     element_id = 26
-    stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
-    debug("Service %: " + str(stateOfCharge))
-    sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'capacity.timeRemaining': round(((element[element_id][1] * 3600) / element[element_id + 1][1]) * stateOfCharge) })
-    sensorListTmp[sensorListTmp_id].update({'current': element[element_id + 1][1] / float(100)})
-    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
+    if (element[element_id][0] != 65535):
+      stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
+      debug("Service %: " + str(stateOfCharge))
+      sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
+      sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
+
+    current = element[element_id + 1][1]
+    if (current > 25000):
+      current = (65535 - current) / float(100) 
+    else:
+      current = current / float(100) * -1
+    sensorListTmp[sensorListTmp_id].update({'current': current})
+
+    if (element[element_id][0] != 65535):
+      timeRemaining = round(sensorList[sensorListTmp_id]['capacity.nominal'] / 12 / ((current * stateOfCharge) + 0.001) )
+      if (timeRemaining < 0):
+        timeRemaining = 60*60 * 24 * 7    # One week
+      sensorListTmp[sensorListTmp_id].update({'capacity.timeRemaining': timeRemaining})
+ 
+    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2][1] / float(1000)})
     # Temperature Service
     # sensorListTmp_id = 25
     element_id = 31
@@ -364,15 +377,15 @@ while True:
 
 
     # Ankerlier accu
-    # element_id = 42
-    # sensorListTmp_id = 30
-    # if (element[element_id][0] == 16000):
-      # sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * 36 * 12})
-      # sensorListTmp[sensorListTmp_id].update({'stateOfCharge': round(element[element_id][1] * 36 * 12 / sensorListTmp[sensorListTmp_id]['capacity.nominal']) })
-    # sensorListTmp[sensorListTmp_id].update({'stateOfCharge': element[element_id + 2 ][0] / float(1000)})
-    # sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][0] / float(1000)})
+    element_id = 44
+    sensorListTmp_id = 30
+    stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
+    debug("Ankerlier %: " + str(stateOfCharge))
+    sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
+    sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
+    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
     #sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
-    debug( sensorListTmp )
+    #debug( sensorListTmp )
 
     # Populate JSON
     batteryInstance = 1
