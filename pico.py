@@ -325,7 +325,7 @@ while True:
 
     current = element[element_id + 1][1]
     if (current > 25000):
-      current = (65535 - current) / float(100) 
+      current = (65535 - current) / float(100)
     else:
       current = current / float(100) * -1
     sensorListTmp[sensorListTmp_id].update({'current': current})
@@ -335,7 +335,7 @@ while True:
       if (timeRemaining < 0):
         timeRemaining = 60*60 * 24 * 7    # One week
       sensorListTmp[sensorListTmp_id].update({'capacity.timeRemaining': timeRemaining})
- 
+
     sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2][1] / float(1000)})
     # Temperature Service
     # sensorListTmp_id = 25
@@ -408,7 +408,6 @@ while True:
         batteryInstance += 1
       if (value['type'] == 'barometer'):
         updates.append({"path": "environment.inside.pressure", "value": value['pressure']})
-        updates.append({"path": "environment.outside.pressure", "value": value['pressure']}) # assuming same pressure in the boat as outside
       if (value['type'] == 'thermometer' and value['name'] == 'Kajuit'):
         updates.append({"path": "environment.inside.temperature", "value": value['temperature']})
       if (value['type'] == 'tank'):
