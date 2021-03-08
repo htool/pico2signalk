@@ -429,7 +429,7 @@ while True:
         "updates": [
               {
                 "source": {
-                    "label": "Simarine Pico"
+                    "label": "Simarine Pico (" + pico_ip + ")"
                 },
                 "values": updates
             }
