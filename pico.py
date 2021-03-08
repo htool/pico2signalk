@@ -26,7 +26,7 @@ client.bind(("", 43210))
 
 # Assign pico address
 message, pico_ip = client.recvfrom(2048)
-debug("See Pico at "", pico_ip)
+debug("See Pico at ", pico_ip)
 
 def debug(string):
     if os.environ.has_key('DEBUG'):
