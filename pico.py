@@ -16,17 +16,6 @@ responses = [''] * 200
 sensors = ['']
 
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-debug( "Start UDP listener")
-# Setup UDP broadcasting listener
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-client.bind(("", 43210))
-
-# Assign pico address
-message, pico_ip = client.recvfrom(2048)
-debug("See Pico at ", pico_ip)
 
 def debug(string):
     if os.environ.has_key('DEBUG'):
@@ -253,6 +242,19 @@ def createSensorList (config):
       sensorList[id].update ({'capacity.nominal': config[entry][5][1]*36*12}) # In Joule
     sensorList[id].update ({'type': type})
   return sensorList
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+debug( "Start UDP listener")
+# Setup UDP broadcasting listener
+client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+client.bind(("", 43210))
+
+# Assign pico address
+message, pico_ip = client.recvfrom(2048)
+debug("See Pico at ", pico_ip)
+
 
 config = get_pico_config(pico_ip)
 debug(config)
