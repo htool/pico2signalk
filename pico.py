@@ -15,7 +15,18 @@ import dictdiffer
 responses = [''] * 200
 sensors = ['']
 
+
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+debug( "Start UDP listener")
+# Setup UDP broadcasting listener
+client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+client.bind(("", 43210))
+
+# Assign pico address
+message, pico_ip = client.recvfrom(2048)
+debug("See Pico at "", pico_ip)
 
 def debug(string):
     if os.environ.has_key('DEBUG'):
@@ -243,21 +254,15 @@ def createSensorList (config):
     sensorList[id].update ({'type': type})
   return sensorList
 
-config = get_pico_config('192.168.2.4')
-debug( config)
+config = get_pico_config(pico_ip)
+debug(config)
 
 # sensorList = {}
 sensorList = createSensorList(config)
-debug( sensorList)
+debug(sensorList)
 
 # exit(0)
 
-debug( "Start UDP listener")
-# Setup UDP broadcasting listener
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-client.bind(("", 43210))
 
 responseB = [''] * 50
 responseC = []
@@ -275,6 +280,8 @@ while True:
       debug ("Received packet with length " + str(len(message)))
       if len(message) > 100 and len(message) < 1000:
         break
+
+
 
     # if responses[0] == '':
       # get_pico_config(addr[0])
