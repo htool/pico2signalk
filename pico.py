@@ -253,7 +253,7 @@ client.bind(("", 43210))
 
 # Assign pico address
 message, pico_ip = client.recvfrom(2048)
-debug("See Pico at " + pico_ip)
+debug("See Pico at %s" + str(pico_ip))
 
 
 config = get_pico_config(pico_ip)
