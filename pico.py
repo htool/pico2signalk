@@ -165,7 +165,7 @@ def open_tcp(pico_ip):
     s.connect((pico_ip, serverport))
     return
   except:
-    debug( "Connection to " + pico_ip + ":5001 failed. Retrying in 1 sec.")
+    debug( "Connection to " + str(pico_ip) + ":5001 failed. Retrying in 1 sec.")
     time.sleep(5)
     # try again
     return open_tcp(pico_ip)
