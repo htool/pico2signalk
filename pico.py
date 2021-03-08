@@ -243,7 +243,7 @@ def createSensorList (config):
     sensorList[id].update ({'type': type})
   return sensorList
 
-config = get_pico_config('192.168.4.4')
+config = get_pico_config('192.168.2.4')
 debug( config)
 
 # sensorList = {}
