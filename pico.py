@@ -252,7 +252,8 @@ client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 client.bind(("", 43210))
 
 # Assign pico address
-message, pico_ip = client.recvfrom(2048)
+message, addr = client.recvfrom(2048)
+pico_ip = addr[0]
 debug("See Pico at %s" + str(pico_ip))
 
 
