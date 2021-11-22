@@ -18,9 +18,9 @@ sensors = ['']
 
 
 def debug(string):
-    if os.environ.has_key('DEBUG'):
+    if "DEBUG" in os.environ:
       if os.environ['DEBUG'] == 'pico':
-        print string
+        print (string)
         sys.stdout.flush()
 
 def empty_socket(sock):
@@ -66,16 +66,16 @@ def IntToDecimal(integer):
     return integer / float(10)
 
 def BinToHex(message):
-  response = ''
-  for x in message:
-    hex = x.encode('hex')
-    response = response + hex + ' '
-  return response
+    response = ''
+    for x in message:
+      hexy = format(x, '02x')
+      response = response + hexy + ' '
+    return response
 
 def parse(message):
-  values = message.split(' ff')
-  values = striplist(values)
-  return values
+    values = message.split(' ff')
+    values = striplist(values)
+    return values
 
 def getNextField(response):
   # debug( "field_nr: " + response[0:2])
@@ -146,15 +146,15 @@ def add_crc(message):
 
 def send_receive(message):
   bytes = message.count(' ') + 1
-  # debug( ("Sending : " + message + " (" + str(bytes) + " bytes)"))
-  message = HexToByte(message)
+  debug( ("Sending : " + message + " (" + str(bytes) + " bytes)"))
+  message = bytearray.fromhex(message)
   s.sendall(message)
   response = ''
   hex = ''
   for x in s.recv(1024):
-    priv_hex = hex
-    hex = x.encode('hex')
+    hex = format(x, '02x')
     response = response + hex + ' '
+  debug('Response: ' + response)
   return response
 
 def open_tcp(pico_ip):
@@ -415,16 +415,16 @@ while True:
       if (value['type'] == 'battery'):
         updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".name", "value": value['name']})
         updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.nominal", "value": value['capacity.nominal']})
-        if value.has_key('voltage'):
+        if 'voltage' in value:
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".voltage", "value": value['voltage']})
-        if value.has_key('temperature'):
+        if 'temperature' in value:
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".temperature", "value": value['temperature']})
-        if value.has_key('current'):
+        if 'current' in value:
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".current", "value": value['current']})
-        if value.has_key('capacity.remaining'):
+        if 'capacity.remaining' in value:
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.remaining", "value": value['capacity.remaining']})
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".stateOfCharge", "value": value['stateOfCharge']})
-        if value.has_key('capacity.timeRemaining'):
+        if 'capacity.timeRemaining' in value:
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.timeRemaining", "value": value['capacity.timeRemaining']})
         batteryInstance += 1
       if (value['type'] == 'barometer'):
@@ -456,7 +456,7 @@ while True:
             }
         ]
     }
-    print json.dumps(delta)
+    print (json.dumps(delta))
     sys.stdout.flush()
     time.sleep (0.9)
     empty_socket(client)
