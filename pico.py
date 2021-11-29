@@ -404,7 +404,10 @@ while True:
     # debug("Dynamo%: " + str(stateOfCharge))
     # sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
     # sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
+    voltage = element[element_id + 2 ][1] / float(1000)
+    if ( voltage == 65.54):  # Misread from data
+      voltage = 0
+    sensorListTmp[sensorListTmp_id].update({'voltage': voltage})
     #sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
     #debug( sensorListTmp )
 
