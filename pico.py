@@ -401,6 +401,12 @@ while True:
     element_id = 49 
     if (element[element_id +2][1] != 65535):
       sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id +2][1] / 1000})
+      # Engine runs if Dynamo is > 5 volt
+      debug("Dynamo voltage: " + str(sensorListTmp[sensorListTmp_id]['voltage']))
+      if (sensorListTmp[sensorListTmp_id]['voltage'] > 5):
+        updates.append({"path": "propulsion.main.revolutions", "value": 15})
+      else:
+        updates.append({"path": "propulsion.main.revolutions", "value": 0})
 
     #debug( sensorListTmp )
 
@@ -435,12 +441,6 @@ while True:
         updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".capacity", "value": value['capacity']})
         tankInstance += 1
 
-    # Engine runs if Dynamo is > 5 volt
-    debug("Dynamo voltage: " + str(sensorListTmp[sensorListTmp_id]['voltage']))
-    if (sensorListTmp[sensorListTmp_id]['voltage'] > 5):
-      updates.append({"path": "propulsion.main.revolutions", "value": 25})
-    else:
-      updates.append({"path": "propulsion.main.revolutions", "value": 0})
 
     delta = {
         "updates": [
