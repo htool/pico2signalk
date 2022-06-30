@@ -174,8 +174,8 @@ def get_pico_config(pico_ip):
   config = {}
   open_tcp(pico_ip)
   response_list = []
-  fluid = ['fresh water','diesel']
-  fluid_type = ['freshWater','fuel']
+  fluid = ['fresh water','diesel','wastewater','wastewater']
+  fluid_type = ['freshWater','fuel','wastewater','wastewater']
   message = ('00 00 00 00 00 ff 02 04 8c 55 4b 00 03 ff')
   message = add_crc(message)
   response = send_receive(message)
@@ -204,8 +204,8 @@ def toTemperature (temp):
 
 def createSensorList (config):
   sensorList = {}
-  fluid = ['Unknown', 'freshWater', 'fuel']
-  fluid_type = ['Unknown', 'fresh water', 'diesel']
+  fluid = ['Unknown', 'freshWater', 'fuel','wastewater']
+  fluid_type = ['Unknown', 'fresh water', 'diesel','wastewater']
   for entry in config.keys():
     # debug( config[entry])
     # Set id
@@ -234,6 +234,9 @@ def createSensorList (config):
       type = 'tank'
       sensorList[id].update ({'name': config[entry][3]})
       sensorList[id].update ({'capacity': config[entry][7][1]/10})
+      debug("fluid_type: " + str(config[entry][6][1]))
+      debug("fluid_type: " + fluid_type[3])
+      debug("fluid_type: " + fluid_type[config[entry][6][1]])
       sensorList[id].update ({'fluid_type': fluid_type[config[entry][6][1]]})
       sensorList[id].update ({'fluid': fluid[config[entry][6][1]]})
     if (type == 9):
@@ -313,10 +316,11 @@ while True:
     element_id = 3
     sensorListTmp[sensorListTmp_id].update({'pressure': element[element_id][1] + 65536})
 
-    # Kajuit
+    # Vuilwater
     sensorListTmp_id = 22
     element_id = 24
-    sensorListTmp[sensorListTmp_id].update({'temperature': toTemperature(element[element_id][1])})
+    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
+    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
 
     # Tank achter
     sensorListTmp_id = 23
