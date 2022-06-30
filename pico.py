@@ -174,8 +174,6 @@ def get_pico_config(pico_ip):
   config = {}
   open_tcp(pico_ip)
   response_list = []
-  fluid = ['fresh water','diesel','wastewater','wastewater']
-  fluid_type = ['freshWater','fuel','wastewater','wastewater']
   message = ('00 00 00 00 00 ff 02 04 8c 55 4b 00 03 ff')
   message = add_crc(message)
   response = send_receive(message)
@@ -204,8 +202,8 @@ def toTemperature (temp):
 
 def createSensorList (config):
   sensorList = {}
-  fluid = ['Unknown', 'freshWater', 'fuel','wastewater']
-  fluid_type = ['Unknown', 'fresh water', 'diesel','wastewater']
+  fluid = ['Unknown', 'freshWater', 'fuel','wasteWater']
+  fluid_type = ['Unknown', 'fresh water', 'diesel','blackwater']
   for entry in config.keys():
     # debug( config[entry])
     # Set id
