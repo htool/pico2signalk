@@ -273,6 +273,36 @@ responseC = []
 
 old_element = {}
 
+def readBaro (sensorId, elementId):
+    sensorListTmp[sensorId].update({'pressure': element[elementId][1] + 65536})
+
+def readTemp (sensorId, elementId):
+    sensorListTmp[sensorId].update({'temperature': toTemperature(element[elementId][1])})
+
+def readTank (sensorId, elementId):
+    sensorListTmp[sensorId].update({'currentLevel': element[elementId][0] / float(1000)})
+    sensorListTmp[sensorId].update({'currentVolume': element[elementId][1] / float(10000)})
+
+def readBatt(sensorId, elementId):
+    stateOfCharge = float("%.2f" % (element[elementId][0] / 16000.0))
+    sensorListTmp[sensorId].update({'stateOfCharge': stateOfCharge })
+    sensorListTmp[sensorId].update({'capacity.remaining': element[elementId][1] * stateOfCharge })
+    sensorListTmp[sensorId].update({'voltage': element[elementId + 2 ][1] / float(1000)})
+
+def readCurrent (sensorId, elementId):
+    current = element[elementId + 1][1]
+    if (current > 25000):
+      current = (65535 - current) / float(100)
+    else:
+      current = current / float(100) * -1
+    sensorListTmp[sensorId].update({'current': current})
+    stateOfCharge = float("%.2f" % (element[elementId][0] / 16000.0))
+    if (element[elementId][0] != 65535):
+      timeRemaining = round(sensorList[sensorId]['capacity.nominal'] / 12 / ((current * stateOfCharge) + 0.001) )
+      if (timeRemaining < 0):
+        timeRemaining = 60*60 * 24 * 7    # One week
+      sensorListTmp[sensorId].update({'capacity.timeRemaining': timeRemaining})
+
 # Main loop
 while True:
     updates = []
@@ -310,107 +340,65 @@ while True:
     # Add values to sensorList copy
 
     # Barometer
-    sensorListTmp_id = 5
-    element_id = 3
-    sensorListTmp[sensorListTmp_id].update({'pressure': element[element_id][1] + 65536})
+    # sensorListTmp_id = 5
+    # element_id = 3
+    readBaro (5, 3)
 
     # Vuilwater
-    sensorListTmp_id = 22
-    element_id = 24
-    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
-    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
+    # sensorListTmp_id = 22
+    # element_id = 24
+    readTank (22, 24)
 
     # Tank achter
-    sensorListTmp_id = 23
-    element_id = 25
-    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
-    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
+    # sensorListTmp_id = 23
+    # element_id = 25
+    readTank (23, 25)
 
     # Service accu
-    sensorListTmp_id = 24
-    element_id = 26
-    if (element[element_id][0] != 65535):
-      stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
-      debug("Service %: " + str(stateOfCharge))
-      sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
-      sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
+    # sensorListTmp_id = 24
+    # element_id = 26
+    readBatt(24, 26)
+    readCurrent(24,26)
 
-    current = element[element_id + 1][1]
-    if (current > 25000):
-      current = (65535 - current) / float(100)
-    else:
-      current = current / float(100) * -1
-    sensorListTmp[sensorListTmp_id].update({'current': current})
-
-    if (element[element_id][0] != 65535):
-      timeRemaining = round(sensorList[sensorListTmp_id]['capacity.nominal'] / 12 / ((current * stateOfCharge) + 0.001) )
-      if (timeRemaining < 0):
-        timeRemaining = 60*60 * 24 * 7    # One week
-      sensorListTmp[sensorListTmp_id].update({'capacity.timeRemaining': timeRemaining})
-
-    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2][1] / float(1000)})
     # Temperature Service
     # sensorListTmp_id = 25
-    element_id = 31
-    # debug("Temp service: " + str(float(("%.2f" % round(element[element_id][1] / float(10) + 273.15, 2)))))
-    sensorListTmp[sensorListTmp_id].update({'temperature': toTemperature(element[element_id][1])})
+    # element_id = 31
+    readTemp(25, 31)
 
     # Start accu
-    sensorListTmp_id = 26
-    element_id = 32
-    stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
-    debug("Start %: " + str(stateOfCharge))
-    sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
-    # sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+    # sensorListTmp_id = 26
+    # element_id = 32
+    readBatt(26, 32)
 
     # Boegschroef accu
-    sensorListTmp_id = 27
-    element_id = 37
-    stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
-    debug("Boegschroef %: " + str(stateOfCharge))
-    sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
-    #sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+    # sensorListTmp_id = 27
+    # element_id = 37
+    readBatt(27, 37)
 
     # Tank voor
-    sensorListTmp_id = 28
-    element_id = 42
-    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
-    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
+    # sensorListTmp_id = 28
+    # element_id = 42
+    readTank (28, 42)
 
     # Tank diesel
-    sensorListTmp_id = 29
-    element_id = 43
-    sensorListTmp[sensorListTmp_id].update({'currentLevel': element[element_id][0] / float(1000)})
-    sensorListTmp[sensorListTmp_id].update({'currentVolume': element[element_id][1] / float(10000)})
-
+    # sensorListTmp_id = 29
+    # element_id = 43
+    readTank (29, 43)
 
     # Ankerlier accu
-    sensorListTmp_id = 30
-    element_id = 44
-    stateOfCharge = float("%.2f" % (element[element_id][0] / 16000.0))
-    debug("Ankerlier %: " + str(stateOfCharge))
-    sensorListTmp[sensorListTmp_id].update({'stateOfCharge': stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'capacity.remaining': element[element_id][1] * stateOfCharge })
-    sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id + 2 ][1] / float(1000)})
-    #sensorListTmp[sensorListTmp_id].update({'temperature': float(("%.2f" % round(element[48][1] / float(10) + 273.15, 2)))})
+    # sensorListTmp_id = 30
+    # element_id = 44
+    readBatt(30, 44)
 
     # Dynamo
-    sensorListTmp_id = 31
-    element_id = 49 
-    if (element[element_id +2][1] != 65535):
-      sensorListTmp[sensorListTmp_id].update({'voltage': element[element_id +2][1] / 1000})
-      # Engine runs if Dynamo is > 5 volt
-      debug("Dynamo voltage: " + str(sensorListTmp[sensorListTmp_id]['voltage']))
-      if (sensorListTmp[sensorListTmp_id]['voltage'] > 5):
-        updates.append({"path": "propulsion.main.revolutions", "value": 15})
-      else:
-        updates.append({"path": "propulsion.main.revolutions", "value": 0})
+    # sensorListTmp_id = 31
+    # element_id = 49 
+    readBatt(31, 49)
 
-    #debug( sensorListTmp )
+    # if (sensorListTmp[sensorListTmp_id]['voltage'] > 5):
+    #   updates.append({"path": "propulsion.main.revolutions", "value": 15})
+    # else:
+    #   updates.append({"path": "propulsion.main.revolutions", "value": 0})
 
     # Populate JSON
     batteryInstance = 1
