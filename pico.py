@@ -291,8 +291,6 @@ def readBatt(sensorId, elementId):
     sensorListTmp[sensorId].update({'stateOfCharge': stateOfCharge })
     sensorListTmp[sensorId].update({'capacity.remaining': element[elementId][1] * stateOfCharge })
     sensorListTmp[sensorId].update({'voltage': element[elementId + 2 ][1] / float(1000)})
-
-def readCurrent (sensorId, elementId):
     current = element[elementId + 1][1]
     if (current > 25000):
       current = (65535 - current) / float(100)
@@ -305,6 +303,14 @@ def readCurrent (sensorId, elementId):
       if (timeRemaining < 0):
         timeRemaining = 60*60 * 24 * 7    # One week
       sensorListTmp[sensorId].update({'capacity.timeRemaining': timeRemaining})
+
+def readCurrent (sensorId, elementId):
+    current = element[elementId][1]
+    if (current > 25000):
+      current = (65535 - current) / float(100)
+    else:
+      current = current / float(100) * -1
+    sensorListTmp[sensorId].update({'current': current})
 
 # Main loop
 while True:
@@ -345,28 +351,30 @@ while True:
     # Barometer
     readBaro (5, 3)
 
-    readValues = False
     for item in sensorList:
         # debug("sensorList[" + str(item) + "]: " + sensorList[item]["name"])
-        if (readValues == True):
-            elId = sensorList[item]['pos']
-            itemType = sensorList[item]['type']
-            if (itemType == 'thermometer'):
-                readTemp(item, elId)
-            if (itemType == 'battery'):
-                readBatt(item, elId)
-                readCurrent(item, elId)
-            if (itemType == 'tank'):
-                readTank(item, elId)
-
-        if (sensorList[item]['type'] == 14):
-            debug('Start reading from ' + str(item))
-            readValues = True
+        elId = sensorList[item]['pos']
+        itemType = sensorList[item]['type']
+        if (itemType == 'thermometer'):
+            readTemp(item, elId)
+        if (itemType == 'battery'):
+            readBatt(item, elId)
+        if (itemType == 'current'):
+            readCurrent(item, elId)
+        if (itemType == 'tank'):
+            readTank(item, elId)
 
     # Populate JSON
     batteryInstance = 1
+    currentInstance = 1
     tankInstance = 1
     for key, value in sensorListTmp.items():
+      if (value['type'] == 'barometer'):
+        updates.append({"path": "environment.inside.pressure", "value": value['pressure']})
+      if (value['type'] == 'thermometer'):
+        updates.append({"path": "electrical.batteries.1.temperature", "value": value['temperature']})
+      if (value['type'] == 'current'):
+        updates.append({"path": "electrical.current." + str(currentInstance), "value": value['current']})
       if (value['type'] == 'battery'):
         updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".name", "value": value['name']})
         updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.nominal", "value": value['capacity.nominal']})
@@ -382,10 +390,6 @@ while True:
         if 'capacity.timeRemaining' in value:
           updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.timeRemaining", "value": value['capacity.timeRemaining']})
         batteryInstance += 1
-      if (value['type'] == 'barometer'):
-        updates.append({"path": "environment.inside.pressure", "value": value['pressure']})
-      if (value['type'] == 'thermometer'):
-        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".temperature", "value": value['temperature']})
       if (value['type'] == 'tank'):
         updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentLevel", "value": value['currentLevel']})
         updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentVolume", "value": value['currentVolume']})
