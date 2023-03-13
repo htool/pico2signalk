@@ -204,6 +204,7 @@ def createSensorList (config):
   sensorList = {}
   fluid = ['Unknown', 'freshWater', 'fuel','wasteWater']
   fluid_type = ['Unknown', 'fresh water', 'diesel','blackwater']
+  elementPos = -2
   for entry in config.keys():
     # debug( config[entry])
     # Set id
@@ -211,7 +212,7 @@ def createSensorList (config):
     # Set type
     type = config[entry][1][1]
     # Default elementsize
-    elementsize = 1
+    elementSize = 1
     sensorList[id] = {}
     if (type == 1):
       type = 'volt'
@@ -225,6 +226,7 @@ def createSensorList (config):
     if (type == 5):
       type = 'barometer'
       sensorList[id].update ({'name': config[entry][3]})
+      elementSize = 5
     if (type == 6):
       type = 'ohm'
       sensorList[id].update ({'name': config[entry][3]})
@@ -232,16 +234,17 @@ def createSensorList (config):
       type = 'tank'
       sensorList[id].update ({'name': config[entry][3]})
       sensorList[id].update ({'capacity': config[entry][7][1]/10})
-      debug("fluid_type: " + str(config[entry][6][1]))
-      debug("fluid_type: " + fluid_type[3])
-      debug("fluid_type: " + fluid_type[config[entry][6][1]])
       sensorList[id].update ({'fluid_type': fluid_type[config[entry][6][1]]})
       sensorList[id].update ({'fluid': fluid[config[entry][6][1]]})
+      elementSize = 1
     if (type == 9):
       type = 'battery'
       sensorList[id].update ({'name': config[entry][3]})
       sensorList[id].update ({'capacity.nominal': config[entry][5][1]*36*12}) # In Joule
-    sensorList[id].update ({'type': type})
+      elementSize = 5
+
+    sensorList[id].update ({'type': type, 'pos': elementPos})
+    elementPos = elementPos + elementSize
   return sensorList
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -340,65 +343,25 @@ while True:
     # Add values to sensorList copy
 
     # Barometer
-    # sensorListTmp_id = 5
-    # element_id = 3
     readBaro (5, 3)
 
-    # Vuilwater
-    # sensorListTmp_id = 22
-    # element_id = 24
-    readTank (22, 24)
+    readValues = False
+    for item in sensorList:
+        # debug("sensorList[" + str(item) + "]: " + sensorList[item]["name"])
+        if (readValues == True):
+            elId = sensorList[item]['pos']
+            itemType = sensorList[item]['type']
+            if (itemType == 'thermometer'):
+                readTemp(item, elId)
+            if (itemType == 'battery'):
+                readBatt(item, elId)
+                readCurrent(item, elId)
+            if (itemType == 'tank'):
+                readTank(item, elId)
 
-    # Tank achter
-    # sensorListTmp_id = 23
-    # element_id = 25
-    readTank (23, 25)
-
-    # Service accu
-    # sensorListTmp_id = 24
-    # element_id = 26
-    readBatt(24, 26)
-    readCurrent(24,26)
-
-    # Temperature Service
-    # sensorListTmp_id = 25
-    # element_id = 31
-    readTemp(25, 31)
-
-    # Start accu
-    # sensorListTmp_id = 26
-    # element_id = 32
-    readBatt(26, 32)
-
-    # Boegschroef accu
-    # sensorListTmp_id = 27
-    # element_id = 37
-    readBatt(27, 37)
-
-    # Tank voor
-    # sensorListTmp_id = 28
-    # element_id = 42
-    readTank (28, 42)
-
-    # Tank diesel
-    # sensorListTmp_id = 29
-    # element_id = 43
-    readTank (29, 43)
-
-    # Ankerlier accu
-    # sensorListTmp_id = 30
-    # element_id = 44
-    readBatt(30, 44)
-
-    # Dynamo
-    # sensorListTmp_id = 31
-    # element_id = 49 
-    readBatt(31, 49)
-
-    # if (sensorListTmp[sensorListTmp_id]['voltage'] > 5):
-    #   updates.append({"path": "propulsion.main.revolutions", "value": 15})
-    # else:
-    #   updates.append({"path": "propulsion.main.revolutions", "value": 0})
+        if (sensorList[item]['type'] == 14):
+            debug('Start reading from ' + str(item))
+            readValues = True
 
     # Populate JSON
     batteryInstance = 1
@@ -421,8 +384,8 @@ while True:
         batteryInstance += 1
       if (value['type'] == 'barometer'):
         updates.append({"path": "environment.inside.pressure", "value": value['pressure']})
-      if (value['type'] == 'thermometer' and value['name'] == 'Kajuit'):
-        updates.append({"path": "environment.inside.temperature", "value": value['temperature']})
+      if (value['type'] == 'thermometer'):
+        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".temperature", "value": value['temperature']})
       if (value['type'] == 'tank'):
         updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentLevel", "value": value['currentLevel']})
         updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentVolume", "value": value['currentVolume']})
