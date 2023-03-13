@@ -204,7 +204,7 @@ def createSensorList (config):
   sensorList = {}
   fluid = ['Unknown', 'freshWater', 'fuel','wasteWater']
   fluid_type = ['Unknown', 'fresh water', 'diesel','blackwater']
-  elementPos = -2
+  elementPos = 0
   for entry in config.keys():
     # debug( config[entry])
     # Set id
@@ -214,6 +214,9 @@ def createSensorList (config):
     # Default elementsize
     elementSize = 1
     sensorList[id] = {}
+    if (type == 0):
+      type = 'null'
+      elementSize = 0
     if (type == 1):
       type = 'volt'
       sensorList[id].update ({'name': config[entry][3]})
@@ -236,12 +239,14 @@ def createSensorList (config):
       sensorList[id].update ({'capacity': config[entry][7][1]/10})
       sensorList[id].update ({'fluid_type': fluid_type[config[entry][6][1]]})
       sensorList[id].update ({'fluid': fluid[config[entry][6][1]]})
-      elementSize = 1
     if (type == 9):
       type = 'battery'
       sensorList[id].update ({'name': config[entry][3]})
       sensorList[id].update ({'capacity.nominal': config[entry][5][1]*36*12}) # In Joule
       elementSize = 5
+    if (type == 14):
+      type = 'XX'
+      elementSize = 4
 
     sensorList[id].update ({'type': type, 'pos': elementPos})
     elementPos = elementPos + elementSize
