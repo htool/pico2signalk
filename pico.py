@@ -146,7 +146,7 @@ def add_crc(message):
 
 def send_receive(message):
   bytes = message.count(' ') + 1
-  debug( ("Sending : " + message + " (" + str(bytes) + " bytes)"))
+  # debug( ("Sending : " + message + " (" + str(bytes) + " bytes)"))
   message = bytearray.fromhex(message)
   s.sendall(message)
   response = ''
@@ -154,7 +154,7 @@ def send_receive(message):
   for x in s.recv(1024):
     hex = format(x, '02x')
     response = response + hex + ' '
-  debug('Response: ' + response)
+  # debug('Response: ' + response)
   return response
 
 def open_tcp(pico_ip):
@@ -177,10 +177,10 @@ def get_pico_config(pico_ip):
   message = ('00 00 00 00 00 ff 02 04 8c 55 4b 00 03 ff')
   message = add_crc(message)
   response = send_receive(message)
-  debug( "Response: " + response)
+  # debug( "Response: " + response)
   # Response: 00 00 00 00 00 ff 02 04 8c 55 4b 00 11 ff 01 01 00 00 00 1e ff 02 01 00 00 00 30 ff 32 cf
   req_count = int(response.split()[19], 16) + 1
-  debug( "req_count: " + str(req_count))
+  # debug( "req_count: " + str(req_count))
 
   for pos in range(req_count):
     message = ('00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 ' + "%02x" % pos + ' ff 01 03 00 00 00 00 ff 00 00 00 00 ff')
@@ -262,10 +262,12 @@ debug("See Pico at " + str(pico_ip))
 
 
 config = get_pico_config(pico_ip)
+debug("CONFIG:")
 debug(config)
 
 # sensorList = {}
 sensorList = createSensorList(config)
+debug("SensorList:")
 debug(sensorList)
 
 # exit(0)
@@ -330,7 +332,7 @@ while True:
       # get_pico_config(addr[0])
 
     response = BinToHex(message)
-    debug(response)
+    # debug(response)
     # if len(message) > 300:
       # debug( response
 
