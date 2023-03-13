@@ -376,8 +376,8 @@ while True:
       if (value['type'] == 'thermometer'):
         updates.append({"path": "electrical.batteries.1.temperature", "value": value['temperature']})
       if (value['type'] == 'current'):
-        updates.append({"path": "electrical.current." + str(currentInstance), ".value": value['current']})
-        updates.append({"path": "electrical.current." + str(currentInstance), ".name": value['name']})
+        updates.append({"path": "electrical.current." + str(currentInstance) + ".value", "value": value['current']})
+        updates.append({"path": "electrical.current." + str(currentInstance) + ".name", "value": value['name']})
         currentInstance += 1
       if (value['type'] == 'battery'):
         updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".name", "value": value['name']})
