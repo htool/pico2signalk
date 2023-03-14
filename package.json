@@ -1,0 +1,27 @@
+{
+  "name": "Pico2SignalK",
+  "description": "Read Simarine Pico config and updates from the network",
+  "version": "0.0.1",
+  "private": false,
+  "license": "UNLICENSED",
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-category-hardware",
+    "marine",
+    "nautic"
+  ],
+  "author": {
+    "name": "Hans Tool",
+    "email": "hans@defect.org"
+  },
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/htool/Pico2SignalK.git"
+  },
+  "bugs": {
+    "url": "https://github.com/htool/Pico2SignalK/issues"
+  },
+  "homepage": "https://github.com/htool/Pico2SignalK#readme",
+  "signalk-plugin-enabled-by-default": true
+}
