@@ -220,16 +220,19 @@ def createSensorList (config):
     if (type == 1):
       type = 'volt'
       sensorList[id].update ({'name': config[entry][3]})
+      if (config[entry][3] == 'PICO INTERNAL'):
+        elementSize = 6
     if (type == 2):
       type = 'current'
       sensorList[id].update ({'name': config[entry][3]})
+      elementSize = 2
     if (type == 3):
       type = 'thermometer'
       sensorList[id].update ({'name': config[entry][3]})
     if (type == 5):
       type = 'barometer'
       sensorList[id].update ({'name': config[entry][3]})
-      elementSize = 5
+      elementSize = 2
     if (type == 6):
       type = 'ohm'
       sensorList[id].update ({'name': config[entry][3]})
@@ -246,7 +249,7 @@ def createSensorList (config):
       elementSize = 5
     if (type == 14):
       type = 'XX'
-      elementSize = 4
+      elementSize = 1
 
     sensorList[id].update ({'type': type, 'pos': elementPos})
     elementPos = elementPos + elementSize
@@ -311,6 +314,12 @@ def readBatt(sensorId, elementId):
         timeRemaining = 60*60 * 24 * 7    # One week
       sensorListTmp[sensorId].update({'capacity.timeRemaining': timeRemaining})
 
+def readVolt (sensorId, elementId):
+    sensorListTmp[sensorId].update({'voltage': element[elementId][1] / float(1000)})
+
+def readOhm (sensorId, elementId):
+    sensorListTmp[sensorId].update({'ohm': element[elementId][1] })
+
 def readCurrent (sensorId, elementId):
     current = element[elementId][1]
     if (current > 25000):
@@ -348,6 +357,7 @@ while True:
         pos = 0
 
     element = parseResponse(response)
+    # element = {0: [25615, 43879], 1: [25615, 47479], 2: [65535, 64534], 3: [1, 31679], 4: [0, 153], 5: [0, 12114], 9: [25606, 10664], 10: [65535, 64534], 11: [65535, 64980], 12: [0, 5875], 13: [0, 12672], 14: [0, 0], 15: [0, 65535], 16: [0, 65535], 17: [0, 65535], 18: [65535, 65520], 19: [65531, 34426], 20: [0, 0], 21: [0, 16], 22: [65535, 65535], 23: [65535, 65450], 24: [65535, 65048], 25: [65515, 983], 26: [0, 0], 27: [0, 0], 28: [0, 0], 29: [0, 65535], 30: [0, 65535], 31: [0, 65535], 32: [0, 65535], 33: [0, 0], 34: [65535, 65532], 35: [0, 18386], 36: [0, 26940], 37: [0, 0], 38: [0, 65535], 39: [0, 65535], 40: [0, 65535], 41: [0, 0], 42: [65529, 51037], 43: [65535, 65529], 44: [4, 9403], 45: [0, 0], 46: [65533, 6493], 47: [0, 0], 48: [65535, 18413], 49: [0, 0], 50: [15776, 53404], 51: [65535, 64980], 52: [0, 12672], 53: [32767, 65535], 54: [65531, 42226], 55: [15984, 17996], 56: [65535, 65532], 57: [0, 26940], 58: [32767, 65535], 59: [65253, 37546], 60: [0, 0], 61: [0, 0], 62: [0, 0], 63: [0, 54], 64: [0, 57], 65: [0, 65535], 66: [0, 44], 67: [0, 0], 68: [282, 2829], 69: [5, 58], 70: [300, 3000]}
     debug(element)
     for diff in list(dictdiffer.diff(old_element, element)):
       debug( diff )
@@ -357,6 +367,8 @@ while True:
 
     # Barometer
     readBaro (5, 3)
+    # Pico internal
+    readVolt (6, 5)
 
     for item in sensorList:
         # debug("sensorList[" + str(item) + "]: " + sensorList[item]["name"])
@@ -366,6 +378,10 @@ while True:
             readTemp(item, elId)
         if (itemType == 'battery'):
             readBatt(item, elId)
+        if (itemType == 'ohm'):
+            readOhm(item, elId)
+        if (itemType == 'volt'):
+            readVolt(item, elId)
         if (itemType == 'current'):
             readCurrent(item, elId)
         if (itemType == 'tank'):
@@ -374,12 +390,21 @@ while True:
     # Populate JSON
     batteryInstance = 1
     currentInstance = 1
+    ohmInstance = 1
+    voltInstance = 0
     tankInstance = 1
     for key, value in sensorListTmp.items():
       if (value['type'] == 'barometer'):
         updates.append({"path": "environment.inside.pressure", "value": value['pressure']})
       if (value['type'] == 'thermometer'):
         updates.append({"path": "electrical.batteries.1.temperature", "value": value['temperature']})
+      if (value['type'] == 'volt'):
+        updates.append({"path": "electrical.volt." + str(voltInstance) + ".value", "value": value['voltage']})
+        updates.append({"path": "electrical.volt." + str(voltInstance) + ".name", "value": value['name']})
+        voltInstance += 1
+      if (value['type'] == 'ohm'):
+        updates.append({"path": "electrical.ohm." + str(ohmInstance) + ".value", "value": value['ohm']})
+        updates.append({"path": "electrical.ohm." + str(ohmInstance) + ".name", "value": value['name']})
       if (value['type'] == 'current'):
         updates.append({"path": "electrical.current." + str(currentInstance) + ".value", "value": value['current']})
         updates.append({"path": "electrical.current." + str(currentInstance) + ".name", "value": value['name']})
@@ -418,7 +443,7 @@ while True:
             }
         ]
     }
-    print (json.dumps(delta))
+    print (json.dumps(delta, indent=2))
     sys.stdout.flush()
     time.sleep (0.9)
     empty_socket(client)
