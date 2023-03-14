@@ -11,11 +11,8 @@ import brainsmoke
 import copy
 import dictdiffer
 
-
 responses = [''] * 200
 sensors = ['']
-
-
 
 def debug(string):
     if "DEBUG" in os.environ:
@@ -340,15 +337,7 @@ while True:
       if len(message) > 100 and len(message) < 1000:
         break
 
-
-
-    # if responses[0] == '':
-      # get_pico_config(addr[0])
-
     response = BinToHex(message)
-    # debug(response)
-    # if len(message) > 300:
-      # debug( response
 
     if response[18] == 'b':
       if len(response) == 0:
@@ -365,15 +354,12 @@ while True:
 
     # Add values to sensorList copy
 
-    # Barometer
-    readBaro (5, 3)
-    # Pico internal
-    readVolt (6, 5)
-
     for item in sensorList:
         # debug("sensorList[" + str(item) + "]: " + sensorList[item]["name"])
         elId = sensorList[item]['pos']
         itemType = sensorList[item]['type']
+        if (itemType == 'barometer'):
+            readBaro(item, elId)
         if (itemType == 'thermometer'):
             readTemp(item, elId)
         if (itemType == 'battery'):
@@ -443,7 +429,8 @@ while True:
             }
         ]
     }
-    print (json.dumps(delta, indent=2))
+    print (json.dumps(delta))
+    debug(json.dumps(delta, indent=2))
     sys.stdout.flush()
     time.sleep (0.9)
     empty_socket(client)
