@@ -1,4 +1,4 @@
-const id = "Pico2SignalK";
+const id = "pico2signalk";
 const { spawn } = require('node:child_process');
 
 var plugin = {}
