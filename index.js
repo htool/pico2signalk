@@ -12,8 +12,23 @@ module.exports = function(app, options) {
 
   var unsubscribes = []
 
+  var schema = {
+    properties: {
+      batteryNr: {
+        type: "number",
+        title: "Set starting instance for batteries",
+        default: 1
+      },
+      tankNr: {
+        type: "number",
+        title: "Set starting instance for tanks",
+        default: 1
+      }
+    }
+  }
+
   plugin.schema = function() {
-    return {}
+    return schema
   }
 
   let child
@@ -28,7 +43,20 @@ module.exports = function(app, options) {
         data.toString().split(/\r?\n/).forEach(line => {
           if (line.length > 0) {
             let updates = JSON.parse(line)
-            app.debug('update: %j', updates)
+            for (const [key, value] of Object.entries(updates.updates[0].values)) {
+              app.debug(`${key}: ${value.path}`);
+              if (updates.updates[0].values[key].path.startsWith('electrical.batteries.')) {
+                let [e, b, instance, value] = updates.updates[0].values[key].path.split('.')
+                instance = Number(Number(instance) + options.batteryNr - 1)
+                updates.updates[0].values[key].path = [e, b, String(instance), value].join('.')
+              }
+              if (updates.updates[0].values[key].path.startsWith('tanks.')) {
+                let [t, type, instance, value] = updates.updates[0].values[key].path.split('.')
+                instance = Number(Number(instance) + options.tankNr - 1)
+                updates.updates[0].values[key].path = [t, type, String(instance), value].join('.')
+              }
+            }
+            app.debug('updates: %j', updates)
             app.handleMessage(plugin.id, updates)
           }
         })
