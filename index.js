@@ -156,7 +156,7 @@ module.exports = function(app, options) {
     }
 
     function readCurrent (sensorId, elementId) {
-      let current = element[elementId + 1][1]
+      let current = element[elementId][1]
       if (current > 25000) {
         current = (65535 - current) / 100
       } else {
