@@ -51,25 +51,184 @@ module.exports = function(app, options) {
   plugin.start = function(options, restartPlugin) {
     app.debug('Starting plugin');
 
+    var sensorList
+    var configRead = false
     child = spawn('python', ['pico.py'], { cwd: __dirname });
 
     child.stdout.on('data', function (data) {
-      try {
-        data.toString().split(/\r?\n/).forEach(line => {
-          if (line.length > 0) {
-            let sensorObj = JSON.parse(line)
-            app.debug('sensorList: %j', sensorObj)
-            let updates = createUpdates(sensorObj)
-            app.debug('updates: %j', updates)
-            pushDelta(app, updates)
+      let dataString = data.toString('utf-8')
+      sensorList = JSON.parse(dataString)
+      app.debug('sensorList: %j', sensorList)
+      configRead = true
+    })
+
+    var udp = require('dgram')
+    var port = 43210
+    var socket = udp.createSocket('udp4')
+    var element
+    var sensorListTmp
+    var lastUpdate
+
+    socket.on('message', function (msg, info){
+      if (Date.now() - lastUpdate < 1000) {
+        // One update per second
+        return
+      }
+      lastUpdate = Date.now()
+      let message = msg.toString('hex')
+      // app.debug(message)
+      if (configRead == true && message.length > 100 && message.length < 1000) {
+        element = parseMessage(message)
+        sensorListTmp = JSON.parse(JSON.stringify(sensorList))
+        Object.keys(sensorList).forEach(item => {
+	        // debug("sensorList[" + str(item) + "]: " + sensorList[item]["name"])
+	        let elId = sensorList[item]['pos']
+	        let type = sensorList[item]['type']
+          switch (type) {
+	          case 'barometer':
+	            readBaro(item, elId)
+              break
+	          case 'thermometer':
+	            readTemp(item, elId)
+              break
+	          case 'battery':
+	            readBatt(item, elId)
+              break
+	          case 'ohm':
+	            readOhm(item, elId)
+              break
+	          case 'volt':
+	            readVolt(item, elId)
+              break
+	          case 'current':
+	            readCurrent(item, elId)
+              break
+	          case 'tank':
+	            readTank(item, elId)
+              break
           }
         })
-      } catch (e) {
-        console.error(e.message)
+        // app.debug(sensorListTmp)
+        let updates = createUpdates(sensorListTmp)
+        pushDelta (updates)
+      } else {
+        // app.debug('Not processing: ' + message)
       }
     });
 
-    function pushDelta(app, values) {
+    socket.on('listening', function(){
+      var address = socket.address();
+      app.debug("listening on :" + address.address + ":" + address.port);
+    });
+
+    socket.bind(port, function() {
+      socket.setBroadcast(true);
+      const address = socket.address()
+      app.debug("Client using port " + address.port)
+    })
+
+    socket.on('error', function (err) {
+      app.debug('Error: ' + err)
+    })
+
+    function readBaro (sensorId, elementId) {
+      sensorListTmp[sensorId]['pressure'] = element[elementId][1] + 65536
+    }
+
+    function readTemp (sensorId, elementId) {
+      sensorListTmp[sensorId]['temperature'] = toTemperature(element[elementId][1])
+    }
+
+    function readTank (sensorId, elementId) {
+      sensorListTmp[sensorId]['currentLevel'] = element[elementId][0] / 1000
+      sensorListTmp[sensorId]['currentVolume'] = element[elementId][1] / 1000
+    }
+
+    function readVolt (sensorId, elementId) {
+      sensorListTmp[sensorId]['voltage'] = element[elementId][1] / 1000
+    }
+
+    function readOhm (sensorId, elementId) {
+      sensorListTmp[sensorId]['ohm'] = element[elementId][1]
+    }
+
+    function readCurrent (sensorId, elementId) {
+      let current = element[elementId + 1][1]
+      if (current > 25000) {
+        current = (65535 - current) / 100
+      } else {
+        current = current / 100 * -1
+      }
+      sensorListTmp[sensorId]['current'] = current
+    }
+
+    function readBatt (sensorId, elementId) {
+      let stateOfCharge = Number((element[elementId][0] / 16000).toFixed(2))
+      sensorListTmp[sensorId]['stateOfCharge'] = stateOfCharge
+      sensorListTmp[sensorId]['capacity.remaining'] = element[elementId][1] * stateOfCharge
+      sensorListTmp[sensorId]['voltage'] = element[elementId + 2][1] / 1000
+      let current = element[elementId + 1][1]
+      if (current > 25000) {
+        current = (65535 - current) / 100
+      } else {
+        current = current / 100 * -1
+      }
+      sensorListTmp[sensorId]['current'] = current
+      let timeRemaining
+      if (element[elementId][0] != 65535) {
+        timeRemaining = Math.round(sensorList[sensorId]['capacity.nominal'] / 12 / ((current * stateOfCharge) + 0.001) )
+      }
+      if (timeRemaining < 0) {
+        timeRemaining = 60*60 * 24 * 7    // One week
+      }
+      sensorListTmp[sensorId]['capacity.timeRemaining'] = timeRemaining
+    }
+
+    function toTemperature (temp) {
+      // Unsigned to signed
+      if (temp > 32768) {
+        temp = temp - 65536
+      }
+      let temp2 = Number((temp / 10 + 273.15).toFixed(2))
+      return temp2
+    }
+
+    function parseMessage (hexString) {
+      var result = {}
+      hexString = hexString.substr(28)
+      // app.debug("hexString: " + hexString)
+      while (hexString.length > 4) { 
+        let [field_nr, field_data, response] = getNextField(hexString)
+        result[field_nr] = field_data
+        hexString = response
+        
+      }
+      return result  
+    }
+    
+    function getNextField (hexString) {
+      // app.debug("field_nr: " + hexString.substr(0,2) + " field_type: " + hexString.substr(2,2))
+      let field_nr = parseInt(hexString.substr(0,2), 16)
+      let field_type = parseInt(hexString.substr(2,2), 16)
+      // app.debug(`field_nr: ${field_nr} field_type: ${field_type}`)
+      switch (field_type) {
+        case 1:
+          let a = parseInt(hexString.substr(4,4), 16)
+          let b = parseInt(hexString.substr(8,4), 16)
+          let field_data = [a, b]
+          hexString = hexString.substr(14)
+          return [field_nr, field_data, hexString]
+          break
+        case 3:
+          break
+        case 4:
+          // Text string
+          break
+      }
+    }
+
+
+    function pushDelta(values) {
       var update = {
         updates: [
           { 

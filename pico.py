@@ -274,8 +274,9 @@ debug(config)
 sensorList = createSensorList(config)
 debug("SensorList:")
 debug(sensorList)
+print (json.dumps(sensorList))
 
-# exit(0)
+exit(0)
 
 
 responseB = [''] * 50
@@ -325,7 +326,7 @@ def readCurrent (sensorId, elementId):
       current = current / float(100) * -1
     sensorListTmp[sensorId].update({'current': current})
 
-# Main loop
+
 while True:
     updates = []
     sensorListTmp = copy.deepcopy(sensorList)
@@ -338,6 +339,8 @@ while True:
         break
 
     response = BinToHex(message)
+
+    debug("response: " + response)
 
     if response[18] == 'b':
       if len(response) == 0:
