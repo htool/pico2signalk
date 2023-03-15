@@ -68,6 +68,7 @@ module.exports = function(app, options) {
     var element
     var sensorListTmp
     var lastUpdate
+    var firstUpdate = true
 
     socket.on('message', function (msg, info){
       if (Date.now() - lastUpdate < 1000) {
@@ -244,6 +245,19 @@ module.exports = function(app, options) {
       return
     }
 
+    function sendMetas(metas) {
+      var update = {
+        updates: [
+          { 
+            meta: metas
+          }
+        ]
+      }
+      app.debug('update: %j', update)
+      app.handleMessage(plugin.id, update)
+      return
+    }
+
     function createUpdates (sensorList) {
 	    var batteryInstance = options.batteryNr || 1
 	    var currentInstance = options.currentNr || 1
@@ -252,6 +266,7 @@ module.exports = function(app, options) {
 	    var tankInstance = options.tankNr || 1
 	    // for key, value in sensorList.items():
       var updates = []
+      var metas = []
       for (const [key, value] of Object.entries(sensorList)) {
         // app.debug('key: %d  value: %j', key, value)
         switch (value['type']) {
@@ -264,15 +279,25 @@ module.exports = function(app, options) {
 	        case 'volt':
 	          updates.push({"path": "electrical.voltage." + String(voltInstance) + ".value", "value": value.voltage})
 	          updates.push({"path": "electrical.voltage." + String(voltInstance) + ".name", "value": value.name})
+            if (firstUpdate) {
+	            metas.push({"path": "electrical.voltage." + String(voltInstance) + ".value", "value": {"units": "V"}})
+            }
 	          voltInstance++
             break
 	        case 'ohm':
 	          updates.push({"path": "electrical.ohm." + String(ohmInstance) + ".value", "value": value.ohm})
 	          updates.push({"path": "electrical.ohm." + String(ohmInstance) + ".name", "value": value.name})
+            if (firstUpdate) {
+	            metas.push({"path": "electrical.ohm." + String(ohmInstance) + ".value", "value": {"units": "ohm"}})
+            }
+            ohmInstance++
             break
 	        case 'current':
 	          updates.push({"path": "electrical.current." + String(currentInstance) + ".value", "value": value.current})
 	          updates.push({"path": "electrical.current." + String(currentInstance) + ".name", "value": value.name})
+            if (firstUpdate) {
+	            metas.push({"path": "electrical.current." + String(currentInstance) + ".value", "value": {"units": "A"}})
+            }
 	          currentInstance++
             break
 	        case 'battery':
@@ -305,6 +330,10 @@ module.exports = function(app, options) {
 			      tankInstance++
             break
 		    }
+      }
+      if (firstUpdate) {
+        firstUpdate = false
+        sendMetas(metas)
       }
       return updates
     }
