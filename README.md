@@ -1,4 +1,9 @@
 # Pico2SignalK
-Read Simarine Pico values and insert them into SignalK
 
-Should at some point be converted to NodeJS and then have some options.
+Reads Simarine Pico config and values and insert them into SignalK
+
+In progress of being converted to NodeJS.
+
+## Plugin options
+
+You can set the start instances of batteries, tanks etc here.

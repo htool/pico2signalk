@@ -373,64 +373,8 @@ while True:
         if (itemType == 'tank'):
             readTank(item, elId)
 
-    # Populate JSON
-    batteryInstance = 1
-    currentInstance = 1
-    ohmInstance = 1
-    voltInstance = 0
-    tankInstance = 1
-    for key, value in sensorListTmp.items():
-      if (value['type'] == 'barometer'):
-        updates.append({"path": "environment.inside.pressure", "value": value['pressure']})
-      if (value['type'] == 'thermometer'):
-        updates.append({"path": "electrical.batteries.1.temperature", "value": value['temperature']})
-      if (value['type'] == 'volt'):
-        updates.append({"path": "electrical.voltage." + str(voltInstance) + ".value", "value": value['voltage']})
-        updates.append({"path": "electrical.voltage." + str(voltInstance) + ".name", "value": value['name']})
-        voltInstance += 1
-      if (value['type'] == 'ohm'):
-        updates.append({"path": "electrical.ohm." + str(ohmInstance) + ".value", "value": value['ohm']})
-        updates.append({"path": "electrical.ohm." + str(ohmInstance) + ".name", "value": value['name']})
-      if (value['type'] == 'current'):
-        updates.append({"path": "electrical.current." + str(currentInstance) + ".value", "value": value['current']})
-        updates.append({"path": "electrical.current." + str(currentInstance) + ".name", "value": value['name']})
-        currentInstance += 1
-      if (value['type'] == 'battery'):
-        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".name", "value": value['name']})
-        updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.nominal", "value": value['capacity.nominal']})
-        if 'voltage' in value:
-          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".voltage", "value": value['voltage']})
-        if 'temperature' in value:
-          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".temperature", "value": value['temperature']})
-        if 'current' in value:
-          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".current", "value": value['current']})
-        if 'capacity.remaining' in value:
-          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.remaining", "value": value['capacity.remaining']})
-          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".stateOfCharge", "value": value['stateOfCharge']})
-        if 'capacity.timeRemaining' in value:
-          updates.append({"path": "electrical.batteries." + str(batteryInstance) + ".capacity.timeRemaining", "value": value['capacity.timeRemaining']})
-        batteryInstance += 1
-      if (value['type'] == 'tank'):
-        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentLevel", "value": value['currentLevel']})
-        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".currentVolume", "value": value['currentVolume']})
-        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".name", "value": value['name']})
-        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".type", "value": value['fluid_type']})
-        updates.append({"path": "tanks." + value['fluid'] + "." + str(tankInstance) + ".capacity", "value": value['capacity']})
-        tankInstance += 1
+    print (json.dumps(sensorListTmp))
 
-
-    delta = {
-        "updates": [
-              {
-                "source": {
-                    "label": "Simarine Pico (" + pico_ip + ")"
-                },
-                "values": updates
-            }
-        ]
-    }
-    print (json.dumps(delta))
-    debug(json.dumps(delta, indent=2))
     sys.stdout.flush()
     time.sleep (0.9)
     empty_socket(client)
