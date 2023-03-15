@@ -145,7 +145,10 @@ module.exports = function(app, options) {
     }
 
     function readVolt (sensorId, elementId) {
-      sensorListTmp[sensorId]['voltage'] = element[elementId][1] / 1000
+      let volt = element[elementId][1]
+      if (volt != 65535) {
+        sensorListTmp[sensorId]['voltage'] = volt / 1000
+      }
     }
 
     function readOhm (sensorId, elementId) {
