@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import os
 import time
@@ -9,7 +9,6 @@ import requests
 import json
 import brainsmoke
 import copy
-import dictdiffer
 
 responses = [''] * 200
 sensors = ['']
