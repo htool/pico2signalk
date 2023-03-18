@@ -53,7 +53,7 @@ module.exports = function(app, options) {
 
     var sensorList
     var configRead = false
-    child = spawn('python', ['pico.py'], { cwd: __dirname });
+    child = spawn('python3', ['pico.py'], { cwd: __dirname });
 
     child.stdout.on('data', function (data) {
       let dataString = data.toString('utf-8')
