@@ -314,7 +314,7 @@ module.exports = function(app, options) {
             }
 	          if (value.hasOwnProperty('capacity.remaining')) {
 		          updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".capacity.remaining", "value": value['capacity.remaining']})
-		          updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".stateOfCharge", "value": value.stateOfCharge})
+		          updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".capacity.stateOfCharge", "value": value.stateOfCharge})
             }
 	          if (value.hasOwnProperty('capacity.timeRemaining')) {
 		          updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".capacity.timeRemaining", "value": value['capacity.timeRemaining']})
