@@ -323,10 +323,10 @@ module.exports = function(app, options) {
             break
 			    case 'tank':
 			      updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".currentLevel", "value": value.currentLevel})
-			      updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".currentVolume", "value": value.currentVolume})
+			      updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".currentVolume", "value": value.currentVolume / 10})
 			      updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".name", "value": value.name})
 			      updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".type", "value": value.fluid_type})
-			      updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".capacity", "value": value.capacity})
+			      updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".capacity", "value": value.capacity / 1000})
 			      tankInstance++
             break
 		    }
