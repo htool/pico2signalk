@@ -1,7 +1,7 @@
 {
   "name": "pico2signalk",
   "description": "Read Simarine Pico config and updates from the network",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": false,
   "license": "UNLICENSED",
   "keywords": [
@@ -21,6 +21,10 @@
   },
   "bugs": {
     "url": "https://github.com/htool/pico2signalk/issues"
+  },
+  "signalk": {
+    "appIcon": "./signalk-logo.png",
+    "displayName": "Pico to SignalK"
   },
   "homepage": "https://github.com/htool/pico2signalk#readme",
   "signalk-plugin-enabled-by-default": true
