@@ -132,32 +132,46 @@ module.exports = function(app, options) {
       app.debug('Error: ' + err)
     })
 
+    function getElement(id, pos) {
+      if (typeof element[id] != 'undefined') {
+        if (typeof element[id][pos] != 'undefined') {
+          return element[id][pos]
+        } else {
+          app.debug('pos %d in element[%d] not found (%s)', pos, id, JSON.stringify(element[id]))
+          return 0
+        }
+      } else {
+        app.debug('element[%d] not found (%s)', id, JSON.stringify(element))
+        return 0
+      }
+    }
+
     function readBaro (sensorId, elementId) {
-      sensorListTmp[sensorId]['pressure'] = element[elementId][1] + 65536
+      sensorListTmp[sensorId]['pressure'] = getElement(elementId, 1) + 65536
     }
 
     function readTemp (sensorId, elementId) {
-      sensorListTmp[sensorId]['temperature'] = toTemperature(element[elementId][1])
+      sensorListTmp[sensorId]['temperature'] = toTemperature(getElement(elementId, 1))
     }
 
     function readTank (sensorId, elementId) {
-      sensorListTmp[sensorId]['currentLevel'] = element[elementId][0] / 1000
-      sensorListTmp[sensorId]['currentVolume'] = element[elementId][1] / 1000
+      sensorListTmp[sensorId]['currentLevel'] = getElement(elementId, 0) / 1000
+      sensorListTmp[sensorId]['currentVolume'] = getElement(elementId, 1) / 1000
     }
 
     function readVolt (sensorId, elementId) {
-      let volt = element[elementId][1]
+      let volt = getElement(elementId, 1)
       if (volt != 65535) {
         sensorListTmp[sensorId]['voltage'] = volt / 1000
       }
     }
 
     function readOhm (sensorId, elementId) {
-      sensorListTmp[sensorId]['ohm'] = element[elementId][1]
+      sensorListTmp[sensorId]['ohm'] = getElement(elementId, 1)
     }
 
     function readCurrent (sensorId, elementId) {
-      let current = element[elementId][1]
+      let current = getElement(elementId, 1)
       if (current > 25000) {
         current = (65535 - current) / 100
       } else {
@@ -167,11 +181,11 @@ module.exports = function(app, options) {
     }
 
     function readBatt (sensorId, elementId) {
-      let stateOfCharge = Number((element[elementId][0] / 16000).toFixed(2))
+      let stateOfCharge = Number((getElement(elementId, 0) / 16000).toFixed(2))
       sensorListTmp[sensorId]['stateOfCharge'] = stateOfCharge
-      sensorListTmp[sensorId]['capacity.remaining'] = element[elementId][1] * stateOfCharge
-      sensorListTmp[sensorId]['voltage'] = element[elementId + 2][1] / 1000
-      let current = element[elementId + 1][1]
+      sensorListTmp[sensorId]['capacity.remaining'] = getElement(elementId, 1) * stateOfCharge
+      sensorListTmp[sensorId]['voltage'] = getElement(elementId + 2, 1) / 1000
+      let current = getElement(elementId + 1, 1)
       if (current > 25000) {
         current = (65535 - current) / 100
       } else {
@@ -179,7 +193,7 @@ module.exports = function(app, options) {
       }
       sensorListTmp[sensorId]['current'] = current
       let timeRemaining
-      if (element[elementId][0] != 65535) {
+      if (getElement(elementId, 0) != 65535) {
         timeRemaining = Math.round(sensorList[sensorId]['capacity.nominal'] / 12 / ((current * stateOfCharge) + 0.001) )
       }
       if (timeRemaining < 0) {
