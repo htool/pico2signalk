@@ -140,7 +140,7 @@ def add_crc(message):
   crc_int = brainsmoke.calc_rev_crc16(message_int[0:-1])
   return message + " " + hexdump(crc_int)
 
-def send_receive(message):
+def send_receive(s, message):
   bytes = message.count(' ') + 1
   # debug( ("Sending : " + message + " (" + str(bytes) + " bytes)"))
   message = bytearray.fromhex(message)
@@ -153,26 +153,34 @@ def send_receive(message):
   # debug('Response: ' + response)
   return response
 
-def open_tcp(pico_ip):
-  try:
-    # Create a TCP stream socket with address family of IPv4 (INET)
+def open_tcp(pico_ip, max_retries=5, retry_delay=5):
     serverport = 5001
-    # Connect to the server at given IP and port
-    s.connect((pico_ip, serverport))
-    return
-  except:
-    debug( "Connection to " + str(pico_ip) + ":5001 failed. Retrying in 1 sec.")
-    time.sleep(5)
-    # try again
-    return open_tcp(pico_ip)
+    s = None
+    retries = 0
+    while retries < max_retries and not s:
+        try:
+            s = socket.create_connection((pico_ip, serverport), timeout=10)
+            if s:
+                debug(f"Connected to {pico_ip}:{serverport}")
+                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                return s  # Return the socket directly, do not rely on `with`
+        except socket.error as e:
+            debug(f"Connection attempt failed: {e}")
+            s = None  # Ensure s is None if connection fails
+        retries += 1
+        if retries < max_retries:
+            debug(f"Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+    debug(f"Max retries ({max_retries}) reached.")
+    return None
 
 def get_pico_config(pico_ip):
   config = {}
-  open_tcp(pico_ip)
+  s = open_tcp(pico_ip)
   response_list = []
   message = ('00 00 00 00 00 ff 02 04 8c 55 4b 00 03 ff')
   message = add_crc(message)
-  response = send_receive(message)
+  response = send_receive(s, message)
   # debug( "Response: " + response)
   # Response: 00 00 00 00 00 ff 02 04 8c 55 4b 00 11 ff 01 01 00 00 00 1e ff 02 01 00 00 00 30 ff 32 cf
   req_count = int(response.split()[19], 16) + 1
@@ -181,7 +189,7 @@ def get_pico_config(pico_ip):
   for pos in range(req_count):
     message = ('00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 ' + "%02x" % pos + ' ff 01 03 00 00 00 00 ff 00 00 00 00 ff')
     message = add_crc(message)
-    response = send_receive(message)
+    response = send_receive(s, message)
     element = parseResponse(response)
     config[pos] = element
 
@@ -251,20 +259,17 @@ def createSensorList (config):
     elementPos = elementPos + elementSize
   return sensorList
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 debug( "Start UDP listener")
 # Setup UDP broadcasting listener
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 client.bind(("", 43210))
-
 # Assign pico address
 message, addr = client.recvfrom(2048)
 pico_ip = addr[0]
 debug("See Pico at " + str(pico_ip))
-
-
 config = get_pico_config(pico_ip)
 debug("CONFIG:")
 debug(config)

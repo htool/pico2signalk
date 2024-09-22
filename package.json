@@ -1,7 +1,7 @@
 {
   "name": "pico2signalk",
   "description": "Read Simarine Pico config and updates from the network",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "private": false,
   "license": "UNLICENSED",
   "keywords": [
