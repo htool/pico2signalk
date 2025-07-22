@@ -122,11 +122,15 @@ module.exports = function(app, options) {
       app.debug("listening on :" + address.address + ":" + address.port);
     });
 
-    socket.bind(port, function() {
-      socket.setBroadcast(true);
-      const address = socket.address()
-      app.debug("Client using port " + address.port)
-    })
+    // Do a delayed start to prevent address in use error
+    setTimeout (function () {
+      app.debug('Binding to port');
+      socket.bind(port, function() {
+        socket.setBroadcast(true);
+        const address = socket.address()
+        app.debug("Client using port " + address.port)
+      })
+    }, 5000);
 
     socket.on('error', function (err) {
       app.debug('Error: ' + err)
