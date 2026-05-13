@@ -122,15 +122,35 @@ module.exports = function(app, options) {
       app.debug("listening on :" + address.address + ":" + address.port);
     });
 
-    // Do a delayed start to prevent address in use error
-    setTimeout (function () {
+    // Bind Node UDP only after pico.py exits.
+    //
+    // pico.py is a one-shot config dumper that binds UDP 43210 itself
+    // (with SO_REUSEPORT), waits for the first broadcast to discover
+    // the Pico IP, opens a TCP connection to query the sensor config,
+    // prints the resulting sensorList JSON, and exit(0)s. The TCP
+    // config query can take 30+s on cold boot or under load.
+    //
+    // The previous setTimeout(bind, 5000) hardcoded a delay too short
+    // for that scenario: Node would hit EADDRINUSE because pico.py was
+    // still holding the socket, no retry was attempted, and Node ended
+    // up never bound — plugin reports "Started" but pushes zero deltas.
+    //
+    // Binding on child.on('exit') instead fires exactly when pico.py
+    // releases the socket, with no timing assumption. The setTimeout
+    // is kept only as a safety net in case pico.py ever hangs.
+    let _udpBound = false;
+    function _doBind() {
+      if (_udpBound) return;
+      _udpBound = true;
       app.debug('Binding to port');
       socket.bind(port, function() {
         socket.setBroadcast(true);
-        const address = socket.address()
-        app.debug("Client using port " + address.port)
-      })
-    }, 5000);
+        const address = socket.address();
+        app.debug("Client using port " + address.port);
+      });
+    }
+    child.on('exit', _doBind);
+    setTimeout(_doBind, 90000); // safety net
 
     socket.on('error', function (err) {
       app.debug('Error: ' + err)
