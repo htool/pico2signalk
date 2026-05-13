@@ -5,7 +5,6 @@ import time
 import socket
 import sys
 import select
-import requests
 import json
 import brainsmoke
 import copy
