@@ -305,15 +305,100 @@ module.exports = function(app, options) {
 	    // for key, value in sensorList.items():
       var updates = []
       var metas = []
+
+      // ===== Thermometer routing helpers =====
+      // Pre-pass: build (instance, normalizedKey) for every battery so we can
+      // resolve thermometer sensor names to a battery instance via flexible
+      // name matching.
+      function _normName(n) {
+        return String(n || '')
+          .toUpperCase()
+          .replace(/[\s_\-]+/g, ' ')
+          .replace(/\s+(BATTERY|BATTERIE|BANK)\s*$/, '')
+          .trim()
+      }
+      var _batteries = []
+      var _biScan = batteryInstance
+      for (const [, _v] of Object.entries(sensorList)) {
+        if (_v && _v['type'] === 'battery' && _v.name) {
+          _batteries.push({ instance: _biScan, key: _normName(_v.name) })
+          _biScan++
+        }
+      }
+
+      // Well-known thermometer name patterns -> canonical SignalK paths.
+      var _wellKnown = [
+        { re: /^(CABIN|INDOOR|INSIDE|MAIN CABIN|SALON|SALOON)$/,         path: 'environment.inside.temperature' },
+        { re: /^(OUTSIDE|OUTDOOR|EXTERIOR|AMBIENT|OUTSIDE AIR)$/,        path: 'environment.outside.temperature' },
+        { re: /^(SEAWATER|SEA WATER|SEA|RAW WATER|WATER)$/,              path: 'environment.water.temperature' },
+        { re: /^(ENGINE|ENGINE ROOM|ENGINEROOM|ENGINE BAY)$/,            path: 'environment.inside.engineRoom.temperature' },
+        { re: /^(REFRIGERATOR|FRIDGE)$/,                                 path: 'environment.inside.refrigerator.temperature' },
+        { re: /^(FREEZER)$/,                                             path: 'environment.inside.freezer.temperature' },
+        { re: /^(EXHAUST)$/,                                             path: 'propulsion.main.exhaustTemperature' },
+      ]
+
+      // Resolve a thermometer sensor name -> SignalK path.
+      function _thermometerPath(sensorName) {
+        var raw = String(sensorName || '').replace(/^TEMP[\s_\-]+/i, '').trim()
+        if (!raw) return 'environment.inside.temperature'
+        var upper = raw.toUpperCase()
+        var key = _normName(raw)
+
+        // 1. Battery match -- only attempt if name mentions BATTERY/BANK
+        if (/\b(BATTERY|BATTERIE|BANK)\b/.test(upper)) {
+          // Exact match
+          for (var i = 0; i < _batteries.length; i++) {
+            if (_batteries[i].key === key) {
+              return 'electrical.batteries.' + String(_batteries[i].instance) + '.temperature'
+            }
+          }
+          // Prefix match either direction (e.g. "BOW" matches "BOW THRUSTER")
+          for (var j = 0; j < _batteries.length; j++) {
+            var b = _batteries[j].key
+            if (b.indexOf(key + ' ') === 0 || key.indexOf(b + ' ') === 0) {
+              return 'electrical.batteries.' + String(_batteries[j].instance) + '.temperature'
+            }
+          }
+          // Token overlap (tokens of length >= 3 to avoid noise)
+          var keyTokens = key.split(/\s+/).filter(function(t) { return t.length >= 3 })
+          for (var k = 0; k < _batteries.length; k++) {
+            var bTokens = _batteries[k].key.split(/\s+/).filter(function(t) { return t.length >= 3 })
+            for (var t = 0; t < keyTokens.length; t++) {
+              if (bTokens.indexOf(keyTokens[t]) !== -1) {
+                return 'electrical.batteries.' + String(_batteries[k].instance) + '.temperature'
+              }
+            }
+          }
+          // No battery match -- fall through to slugified fallback
+        }
+
+        // 2. Well-known canonical paths
+        for (var w = 0; w < _wellKnown.length; w++) {
+          if (_wellKnown[w].re.test(upper)) return _wellKnown[w].path
+        }
+
+        // 3. Slugified fallback under environment.inside.<slug>.temperature
+        //    so each unknown sensor keeps a distinct, predictable path.
+        var slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        if (!slug) slug = 'sensor'
+        return 'environment.inside.' + slug + '.temperature'
+      }
+      // ===== end thermometer routing helpers =====
+
       for (const [key, value] of Object.entries(sensorList)) {
         // app.debug('key: %d  value: %j', key, value)
         switch (value['type']) {
 	        case 'barometer':
 	          updates.push({"path": "environment.inside.pressure", "value": value.pressure})
             break
-	        case 'thermometer':
-	          updates.push({"path": "electrical.batteries.1.temperature", "value": value.temperature})
+	        case 'thermometer': {
+	          var _path = _thermometerPath(value.name)
+	          updates.push({"path": _path, "value": value.temperature})
+	          if (firstUpdate) {
+	            metas.push({"path": _path, "value": {"units": "K"}})
+	          }
             break
+	        }
 	        case 'volt':
 	          updates.push({"path": "electrical.voltage." + String(voltInstance) + ".value", "value": value.voltage})
 	          updates.push({"path": "electrical.voltage." + String(voltInstance) + ".name", "value": value.name})
