@@ -176,25 +176,35 @@ def open_tcp(pico_ip, max_retries=5, retry_delay=5):
 def get_pico_config(pico_ip):
   config = {}
   s = open_tcp(pico_ip)
-  response_list = []
-  message = ('00 00 00 00 00 ff 02 04 8c 55 4b 00 03 ff')
-  message = add_crc(message)
-  response = send_receive(s, message)
-  # debug( "Response: " + response)
-  # Response: 00 00 00 00 00 ff 02 04 8c 55 4b 00 11 ff 01 01 00 00 00 1e ff 02 01 00 00 00 30 ff 32 cf
-  req_count = int(response.split()[19], 16) + 1
-  # debug( "req_count: " + str(req_count))
-
-  for pos in range(req_count):
-    message = ('00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 ' + "%02x" % pos + ' ff 01 03 00 00 00 00 ff 00 00 00 00 ff')
+  if s is None:
+    debug("get_pico_config: open_tcp returned None (Pico TCP unresponsive)")
+    return None
+  try:
+    response_list = []
+    message = ('00 00 00 00 00 ff 02 04 8c 55 4b 00 03 ff')
     message = add_crc(message)
     response = send_receive(s, message)
-    element = parseResponse(response)
-    config[pos] = element
+    # debug( "Response: " + response)
+    # Response: 00 00 00 00 00 ff 02 04 8c 55 4b 00 11 ff 01 01 00 00 00 1e ff 02 01 00 00 00 30 ff 32 cf
+    req_count = int(response.split()[19], 16) + 1
+    # debug( "req_count: " + str(req_count))
 
-  # Close tcp connection
-  s.close()
-  return config
+    for pos in range(req_count):
+      message = ('00 00 00 00 00 ff 41 04 8c 55 4b 00 16 ff 00 01 00 00 00 ' + "%02x" % pos + ' ff 01 03 00 00 00 00 ff 00 00 00 00 ff')
+      message = add_crc(message)
+      response = send_receive(s, message)
+      element = parseResponse(response)
+      config[pos] = element
+
+    return config
+  except Exception as e:
+    debug("get_pico_config failed: " + str(e))
+    return None
+  finally:
+    try:
+      s.close()
+    except Exception:
+      pass
 
 def toTemperature (temp):
   # Unsigned to signed
@@ -269,12 +279,41 @@ client.bind(("", 43210))
 message, addr = client.recvfrom(2048)
 pico_ip = addr[0]
 debug("See Pico at " + str(pico_ip))
-config = get_pico_config(pico_ip)
+
+# Retry config query until it succeeds. Pico's TCP server is intermittently
+# unresponsive (same flakiness users see in the mobile app -- have to restart
+# the app for it to find the server). The 5-retry / 25 s window inside
+# open_tcp is not always enough. Wait, refresh pico_ip from a fresh broadcast,
+# and try again -- forever, until config is obtained.
+sensorList = None
+_retry_attempt = 0
+while sensorList is None:
+    _retry_attempt += 1
+    if _retry_attempt > 1:
+        debug("Config retry attempt " + str(_retry_attempt) + " (waited 30 s)")
+        # Refresh pico_ip from a fresh broadcast in case Pico's IP changed
+        try:
+            client.settimeout(60)
+            _msg, _addr = client.recvfrom(2048)
+            new_ip = _addr[0]
+            if new_ip != pico_ip:
+                debug("Pico IP changed: " + str(pico_ip) + " -> " + str(new_ip))
+                pico_ip = new_ip
+            client.settimeout(None)
+        except Exception as _e:
+            debug("refresh recvfrom failed: " + str(_e))
+            client.settimeout(None)
+    config = get_pico_config(pico_ip)
+    if config:
+        try:
+            sensorList = createSensorList(config)
+        except Exception as _e:
+            debug("createSensorList failed: " + str(_e))
+            sensorList = None
+    if sensorList is None:
+        time.sleep(30)
 debug("CONFIG:")
 debug(config)
-
-# sensorList = {}
-sensorList = createSensorList(config)
 debug("SensorList:")
 debug(sensorList)
 print (json.dumps(sensorList))
