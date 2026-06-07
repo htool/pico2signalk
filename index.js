@@ -139,18 +139,26 @@ module.exports = function(app, options) {
     // releases the socket, with no timing assumption. The setTimeout
     // is kept only as a safety net in case pico.py ever hangs.
     let _udpBound = false;
-    function _doBind() {
+    function _doBind(reason) {
       if (_udpBound) return;
-      _udpBound = true;
+      // PR #11 added TCP retry inside pico.py that can keep it alive past
+      // the 90 s safety net. If the safety timer fires while pico.py is
+      // still running, it still holds the UDP socket — binding now would
+      // race and lose. Defer instead and re-check periodically.
+      if (reason === 'safety' && child && child.exitCode === null && !child.killed) {
+        setTimeout(() => _doBind('safety'), 60000);
+        return;
+      }
       app.debug('Binding to port');
       socket.bind(port, function() {
+        _udpBound = true;
         socket.setBroadcast(true);
         const address = socket.address();
         app.debug("Client using port " + address.port);
       });
     }
-    child.on('exit', _doBind);
-    setTimeout(_doBind, 90000); // safety net
+    child.on('exit', () => _doBind('child-exit'));
+    setTimeout(() => _doBind('safety'), 90000); // safety net
 
     socket.on('error', function (err) {
       app.debug('Error: ' + err)
