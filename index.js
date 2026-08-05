@@ -304,6 +304,9 @@ module.exports = function(app, options) {
       return
     }
 
+
+
+
     function createUpdates (sensorList) {
             var batteryInstance = options.batteryNr || 1
             var currentInstance = options.currentNr || 1
@@ -314,6 +317,27 @@ module.exports = function(app, options) {
       var updates = []
       var metas = []
 
+      function addValue(path, value) {
+        //if (typeof value === 'number' && !Number.isNaN(value)) {
+        if (Number.isFinite(value)) { 
+          updates.push({
+            path: path,
+            value: value
+          })
+        }
+      }
+
+      function addString(path, value) {
+        if (typeof value === 'string' && value.length > 0) {
+          updates.push({
+            path,
+            value
+          })
+        }
+      }
+      
+      
+      
       // ===== Thermometer routing helpers =====
       // Pre-pass: build (instance, normalizedKey) for every battery so we can
       // resolve thermometer sensor names to a battery instance via flexible
@@ -396,94 +420,159 @@ module.exports = function(app, options) {
       for (const [key, value] of Object.entries(sensorList)) {
         // app.debug('key: %d  value: %j', key, value)
         switch (value['type']) {
+                                
                 case 'barometer':
-                  updates.push({"path": "environment.inside.pressure", "value": value.pressure})
-            break
+                  addValue(
+                    "environment.inside.pressure",
+                    value.pressure
+                  )
+                  break
+
                 case 'thermometer': {
                   var _path = _thermometerPath(value.name)
-                  updates.push({"path": _path, "value": value.temperature})
+                  addValue(_path, value.temperature)
+
                   if (firstUpdate) {
-                    metas.push({"path": _path, "value": {"units": "K"}})
+                    metas.push({
+                      path: _path,
+                      value: { units: "K" }
+                    })
                   }
-            break
-                }
-//              case 'volt':
-//                updates.push({"path": "electrical.voltage." + String(voltInstance) + ".value", "value": value.voltage})
-//                updates.push({"path": "electrical.voltage." + String(voltInstance) + ".name", "value": value.name})
-//            if (firstUpdate) {
-//                  metas.push({"path": "electrical.voltage." + String(voltInstance) + ".value", "value": {"units": "V"}})
-//            }
-//                voltInstance++
-//            break
-case 'volt':
-  if (typeof value.voltage === 'number' && !isNaN(value.voltage)) {
-    updates.push({
-      "path": "electrical.voltage." + String(voltInstance) + ".value",
-      "value": value.voltage
-    })
+                  break
+                }                
+                
+                case 'volt':
+                  addValue(
+                    "electrical.voltage." + String(voltInstance) + ".value",
+                    value.voltage
+                  )
 
-    if (firstUpdate) {
-      metas.push({
-        "path": "electrical.voltage." + String(voltInstance) + ".value",
-        "value": {"units": "V"}
-      })
-    }
+                  if (firstUpdate) {
+                    metas.push({
+                      "path": "electrical.voltage." + String(voltInstance) + ".value",
+                      "value": {"units": "V"}
+                    })
+                    }
 
-    if (value.name !== undefined) {
-      updates.push({
-        "path": "electrical.voltage." + String(voltInstance) + ".name",
-        "value": value.name
-      })
-    }
+                  addString(
+                    "electrical.voltage." + String(voltInstance) + ".name",
+                    value.name
+                    )
 
-    voltInstance++
-  }
-break
+                  voltInstance++
+                break
 
                 case 'ohm':
-                  updates.push({"path": "electrical.ohm." + String(ohmInstance) + ".value", "value": value.ohm})
-                  updates.push({"path": "electrical.ohm." + String(ohmInstance) + ".name", "value": value.name})
-            if (firstUpdate) {
-                    metas.push({"path": "electrical.ohm." + String(ohmInstance) + ".value", "value": {"units": "ohm"}})
-            }
-            ohmInstance++
-            break
-                case 'current':
-                  updates.push({"path": "electrical.current." + String(currentInstance) + ".value", "value": value.current})
-                  updates.push({"path": "electrical.current." + String(currentInstance) + ".name", "value": value.name})
-            if (firstUpdate) {
+       
+                  addValue(
+                    "electrical.ohm." + String(ohmInstance) + ".value",
+                    value.ohm
+                  )
+
+                  addString(
+                    "electrical.ohm." + String(ohmInstance) + ".name",
+                    value.name
+                  )                  
+             
+                  if (firstUpdate) {
+                          metas.push({"path": "electrical.ohm." + String(ohmInstance) + ".value", "value": {"units": "ohm"}})
+                  }
+                  ohmInstance++
+              break
+       
+              case 'current':
+                  addValue(
+                    "electrical.current." + String(currentInstance) + ".value",
+                    value.current
+                  )
+
+                  addString(
+                    "electrical.current." + String(currentInstance) + ".name",
+                    value.name
+                  )
+                  
+                  if (firstUpdate) {
                     metas.push({"path": "electrical.current." + String(currentInstance) + ".value", "value": {"units": "A"}})
-            }
+                  }
                   currentInstance++
-            break
-                case 'battery':
-                  updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".name", "value": value.name})
-                  updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".capacity.nominal", "value": value['capacity.nominal']})
-                  if (value.hasOwnProperty('voltage')) {
-                    updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".voltage", "value": value.voltage})
-            }
-                  if (value.hasOwnProperty('temperature')) {
-                    updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".temperature", "value": value.temperature})
-            }
-                  if (value.hasOwnProperty('current')) {
-                          updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".current", "value": value.current})
-            }
-                  if (value.hasOwnProperty('capacity.remaining')) {
-                          updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".capacity.remaining", "value": value['capacity.remaining']})
-                          updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".capacity.stateOfCharge", "value": value.stateOfCharge})
-            }
-                  if (value.hasOwnProperty('capacity.timeRemaining')) {
-                          updates.push({"path": "electrical.batteries." + String(batteryInstance) + ".capacity.timeRemaining", "value": value['capacity.timeRemaining']})
-                                batteryInstance++
-            }
-            break
-                            case 'tank':
-                              updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".currentLevel", "value": value.currentLevel})
-                              updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".currentVolume", "value": value.currentVolume / 10})
-                              updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".name", "value": value.name})
-                              updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".type", "value": value.fluid_type})
-                              updates.push({"path": "tanks." + value.fluid + "." + String(tankInstance) + ".capacity", "value": value.capacity / 1000})
-                              tankInstance++
+              break
+            
+  
+            
+              case 'battery':
+                  addString(
+                    "electrical.batteries." + String(batteryInstance) + ".name",
+                    value.name
+                  )
+
+                  addValue(
+                    "electrical.batteries." + String(batteryInstance) + ".capacity.nominal",
+                    value['capacity.nominal']
+                  )
+
+                  addValue(
+                    "electrical.batteries." + String(batteryInstance) + ".voltage",
+                    value.voltage
+                  )
+
+                  addValue(
+                    "electrical.batteries." + String(batteryInstance) + ".temperature",
+                    value.temperature
+                  )
+
+                  addValue(
+                    "electrical.batteries." + String(batteryInstance) + ".current",
+                    value.current
+                  )
+
+                  addValue(
+                    "electrical.batteries." + String(batteryInstance) + ".capacity.remaining",
+                    value['capacity.remaining']
+                  )
+
+                  addValue(
+                    "electrical.batteries." + String(batteryInstance) + ".capacity.stateOfCharge",
+                    value.stateOfCharge
+                  )
+
+                  addValue(
+                    "electrical.batteries." + String(batteryInstance) + ".capacity.timeRemaining",
+                    value['capacity.timeRemaining']
+                  )
+
+                  batteryInstance++
+              break
+      
+            
+              case 'tank':
+                  var tankPath = "tanks." + value.fluid + "." + String(tankInstance)
+
+                  addValue(
+                    tankPath + ".currentLevel",
+                    value.currentLevel
+                  )
+
+                  addValue(
+                    tankPath + ".currentVolume",
+                    value.currentVolume !== undefined ? value.currentVolume / 10 : undefined
+                  )
+
+                  addString(
+                    tankPath + ".name",
+                    value.name
+                  )
+
+                  addString(
+                    tankPath + ".type",
+                    value.fluid_type
+                  )
+
+                  addValue(
+                    tankPath + ".capacity",
+                    value.capacity !== undefined ? value.capacity / 1000 : undefined
+                  )
+
+                  tankInstance++
             break
                     }
       }
