@@ -2,12 +2,17 @@
 
 Reads Simarine Pico config and values and insert them into SignalK
 
-## Python to NodeJS
+## Dump Pico config
 
-In progress of being converted to NodeJS.
-Currently the config is still picked up by a python script (pico.py).
-Afterwards, the UDP broadcast listening and update processing happens in NodeJS.
+To dump the sensor config as JSON without running SignalK:
 
+```bash
+node bin/dump-pico-config.js
+# or, after npm install -g:
+dump-pico-config --pretty
+```
+
+Set `PICO_IP=x.x.x.x` to skip UDP discovery. Set `DEBUG=pico` to log discovery and retry details to stderr.
 
 ## Plugin options
 

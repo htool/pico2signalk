@@ -15,6 +15,12 @@
     "email": "hans@defect.org"
   },
   "main": "index.js",
+  "bin": {
+    "dump-pico-config": "./bin/dump-pico-config.js"
+  },
+  "engines": {
+    "node": ">=14"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/htool/pico2signalk.git"
