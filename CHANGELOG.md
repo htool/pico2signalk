@@ -62,6 +62,26 @@ Run the unit test for CRC encoding:
 node test/hexdump.test.js
 ```
 
+### Publishing to npm
+
+```bash
+npm whoami          # must show the account that owns pico2signalk
+npm login           # if not logged in (404 on publish usually means auth)
+npm publish         # if 2FA enabled: npm publish --otp=123456
+```
+
+If `npm publish` returns `404 Not Found`, the tarball is usually fine — npm returns
+404 instead of 403 when you are not logged in as the package owner. Verify with
+`npm owner ls pico2signalk`.
+
+After publishing globally, the CLI is also available as:
+
+```bash
+npx pico2signalk dump-pico-config --pretty
+# or, after npm install -g pico2signalk:
+dump-pico-config --pretty
+```
+
 ## [0.0.20] and earlier
 
 Config was retrieved by spawning `python3 pico.py`. Live UDP value processing

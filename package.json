@@ -16,8 +16,14 @@
   },
   "main": "index.js",
   "bin": {
-    "dump-pico-config": "./bin/dump-pico-config.js"
+    "dump-pico-config": "bin/dump-pico-config.js"
   },
+  "files": [
+    "index.js",
+    "bin/",
+    "lib/",
+    "public/"
+  ],
   "engines": {
     "node": ">=14"
   },
@@ -29,7 +35,7 @@
     "url": "https://github.com/htool/pico2signalk/issues"
   },
   "signalk": {
-    "appIcon": "./signalk-logo.png",
+    "appIcon": "./public/signalk-logo.png",
     "displayName": "Pico to SignalK"
   },
   "homepage": "https://github.com/htool/pico2signalk#readme",
