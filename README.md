@@ -12,7 +12,12 @@ node bin/dump-pico-config.js
 dump-pico-config --pretty
 ```
 
-Set `PICO_IP=x.x.x.x` to skip UDP discovery. Set `DEBUG=pico` to log discovery and retry details to stderr.
+Set `PICO_IP=x.x.x.x` to skip UDP discovery. Set `DEBUG=pico` to log discovery, TCP send/receive, and retry details to stderr.
+
+Optional tuning:
+
+- `PICO_TCP_TIMEOUT_MS=30000` — per-request TCP read timeout
+- `PICO_CONFIG_RETRY_MS=30000` — delay between config fetch retries
 
 ## Plugin options
 

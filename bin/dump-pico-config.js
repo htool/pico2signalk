@@ -18,8 +18,10 @@ Options:
   -h, --help  Show this help
 
 Environment:
-  DEBUG=pico     Log discovery and retry details to stderr
-  PICO_IP=x.x.x.x  Skip UDP discovery and use this Pico address
+  DEBUG=pico              Log discovery, TCP, and retry details to stderr
+  PICO_IP=x.x.x.x         Skip UDP discovery and use this Pico address
+  PICO_TCP_TIMEOUT_MS=30000   TCP read timeout per request (default 30s)
+  PICO_CONFIG_RETRY_MS=30000    Delay between config fetch retries (default 30s)
 `);
   process.exit(0);
 }
