@@ -1,5 +1,5 @@
 const id = "pico2signalk";
-const { spawn } = require('node:child_process');
+const { getPicoConfig } = require('./lib/get-pico-config');
 
 var plugin = {}
 
@@ -46,20 +46,22 @@ module.exports = function(app, options) {
     return schema
   }
 
-  let child
+  let configPromise
 
   plugin.start = function(options, restartPlugin) {
     app.debug('Starting plugin');
 
     var sensorList
     var configRead = false
-    child = spawn('python3', ['pico.py'], { cwd: __dirname });
-
-    child.stdout.on('data', function (data) {
-      let dataString = data.toString('utf-8')
-      sensorList = JSON.parse(dataString)
+    configPromise = getPicoConfig({
+      debug: (msg) => app.debug(msg),
+    }).then(({ sensorList: discoveredSensorList }) => {
+      sensorList = discoveredSensorList
       app.debug('sensorList: %j', sensorList)
       configRead = true
+      _doBind('config-ready')
+    }).catch((err) => {
+      app.error('Failed to get Pico config: ' + err.message)
     })
 
     var udp = require('dgram')
@@ -122,34 +124,11 @@ module.exports = function(app, options) {
       app.debug("listening on :" + address.address + ":" + address.port);
     });
 
-    // Bind Node UDP only after pico.py exits.
-    //
-    // pico.py is a one-shot config dumper that binds UDP 43210 itself
-    // (with SO_REUSEPORT), waits for the first broadcast to discover
-    // the Pico IP, opens a TCP connection to query the sensor config,
-    // prints the resulting sensorList JSON, and exit(0)s. The TCP
-    // config query can take 30+s on cold boot or under load.
-    //
-    // The previous setTimeout(bind, 5000) hardcoded a delay too short
-    // for that scenario: Node would hit EADDRINUSE because pico.py was
-    // still holding the socket, no retry was attempted, and Node ended
-    // up never bound — plugin reports "Started" but pushes zero deltas.
-    //
-    // Binding on child.on('exit') instead fires exactly when pico.py
-    // releases the socket, with no timing assumption. The setTimeout
-    // is kept only as a safety net in case pico.py ever hangs.
+    // Bind UDP for live updates after config discovery completes.
     let _udpBound = false;
     function _doBind(reason) {
       if (_udpBound) return;
-      // PR #11 added TCP retry inside pico.py that can keep it alive past
-      // the 90 s safety net. If the safety timer fires while pico.py is
-      // still running, it still holds the UDP socket — binding now would
-      // race and lose. Defer instead and re-check periodically.
-      if (reason === 'safety' && child && child.exitCode === null && !child.killed) {
-        setTimeout(() => _doBind('safety'), 60000);
-        return;
-      }
-      app.debug('Binding to port');
+      app.debug('Binding to port (%s)', reason);
       socket.bind(port, function() {
         _udpBound = true;
         socket.setBroadcast(true);
@@ -157,8 +136,6 @@ module.exports = function(app, options) {
         app.debug("Client using port " + address.port);
       });
     }
-    child.on('exit', () => _doBind('child-exit'));
-    setTimeout(() => _doBind('safety'), 90000); // safety net
 
     socket.on('error', function (err) {
       app.debug('Error: ' + err)
@@ -585,10 +562,7 @@ module.exports = function(app, options) {
   }
 
   plugin.stop = function() {
-    if (child) {
-      process.kill(child.pid)
-      child = undefined
-    }
+    configPromise = undefined
     app.debug("Stopped")
   }
 

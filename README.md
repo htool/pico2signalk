@@ -1,14 +1,28 @@
 # Pico2SignalK
 
-Reads Simarine Pico config and values and insert them into SignalK
+Reads Simarine Pico config and values and inserts them into SignalK.
 
-## Python to NodeJS
+This plugin is **Node.js only** — no Python runtime required. See [CHANGELOG.md](./CHANGELOG.md)
+for migration notes and command-line testing instructions.
 
-In progress of being converted to NodeJS.
-Currently the config is still picked up by a python script (pico.py).
-Afterwards, the UDP broadcast listening and update processing happens in NodeJS.
+## Test from the command line
 
+To verify Pico connectivity and dump the sensor config without SignalK:
+
+```bash
+node bin/dump-pico-config.js --pretty
+```
+
+With debug logging:
+
+```bash
+DEBUG=pico node bin/dump-pico-config.js --raw
+```
+
+Set `PICO_IP=x.x.x.x` to skip UDP discovery. Full options and environment
+variables are documented in [CHANGELOG.md](./CHANGELOG.md).
 
 ## Plugin options
 
-You can set the start instances of batteries, tanks etc here.
+You can set the start instances of batteries, tanks, etc. in the SignalK plugin
+config UI.
