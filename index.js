@@ -193,7 +193,12 @@ module.exports = function(app, options) {
       let stateOfCharge = Number((getElement(elementId, 0) / 16000).toFixed(2))
       sensorListTmp[sensorId]['stateOfCharge'] = stateOfCharge
       sensorListTmp[sensorId]['capacity.remaining'] = getElement(elementId, 1) * stateOfCharge
-      sensorListTmp[sensorId]['voltage'] = getElement(elementId + 2, 1) / 1000
+      // 65535 is Pico NA (uint16). Same sentinel readVolt already skips;
+      // publishing it as mV gives a 65.535 V spike (seen on Dynamo).
+      let volt = getElement(elementId + 2, 1)
+      if (volt != 65535) {
+        sensorListTmp[sensorId]['voltage'] = volt / 1000
+      }
       let current = getElement(elementId + 1, 1)
       if (current > 25000) {
         current = (65535 - current) / 100
